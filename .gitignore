@@ -1,0 +1,15 @@
+# Personal data and reference material never go to GitHub
+reference/
+import/
+screenshots/
+tools/old.html
+tools/source-export.json
+tools/mock/node_modules/
+tools/tests/__pycache__/
+AUDIT.md
+AUDIT-inventory.md
+HANDOFF.md
+ORIGINAL_BRIEF.md
+KICKOFF_PROMPT.md
+REPORT.md
+*.log

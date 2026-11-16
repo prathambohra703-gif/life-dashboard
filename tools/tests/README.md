@@ -1,0 +1,11 @@
+# Tests
+- Everything: `python3 tools/run_tests.py` (own mock on a free port; prints a table; exit 1 on any failure). `--only unit|core|parse|fixes`, `-v` for full output.
+- Node unit tests (no npm packages): `node --test tools/unit/*.test.mjs` (Node 22 needs the glob; a bare directory argument is treated as a file).
+- Browser suites are `tools/tests/test_*.py`, using the shared helper `_h.py` (static server for ./app, `ok`, `mock`, `fresh`, `launch`, `finish`).
+- Run one by hand: `MPORT=8791 node tools/mock/server.mjs &` then `MOCK_PORT=8791 APP_PORT=8767 python3 tools/tests/test_core.py`.
+- Ports come from `APP_PORT` (default 8766) and `MOCK_PORT` (default 8790). Do not toggle `/__down` on a mock others share.
+- `test_core.py` is the 32 end-to-end tests ported from the legacy `tools/test.py`; `test_parse.py` covers the chat parser.
+- Needs Playwright (python) and /usr/bin/google-chrome. The mock needs `tools/mock/node_modules` (pglite).
+- Suites that sync use the mock and toggle `/__down`, so run suites sequentially against one mock (the runner does).
+- Add a suite by dropping `tools/tests/test_<name>.py` that ends with `finish()`; the runner finds it.
+- Each suite prints "N of M passed"; the runner parses that line.

@@ -1,0 +1,128 @@
+/* Design system layer. Loaded after the old stylesheet and theme.css; overrides by cascade, renames nothing.
+   Surfaces: HERO (.sec-hero), STANDARD (.card), QUIET (.card.quiet). See DESIGN.md. */
+:root{
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;
+  --r1:14px;--r2:20px;
+  --gutter:16px;--maxw:1180px;
+  --t-eyebrow:11px;--t-sm:13px;--t-base:15px;--t-md:17px;--t-h2:22px;
+  --t-big:clamp(44px,39.2px + 1.23vw,56px);
+  --t-hero-num:clamp(64px,51.2px + 3.28vw,96px);
+  --t-title:clamp(34px,25.2px + 2.25vw,56px);
+  --surface-hero:rgba(11,12,12,.6);
+  --surface-quiet:transparent;
+  --hair:rgba(238,234,224,.10);--hair2:rgba(238,234,224,.18);
+  --tint:rgba(238,234,224,.05);
+  --oxblood:#8e3b3b;--emerald:#3f8f6b;
+  --shadow-1:0 1px 0 rgba(255,255,255,.03) inset,0 10px 28px -14px rgba(0,0,0,.7);
+  --shadow-2:0 18px 48px -20px rgba(0,0,0,.75);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+
+/* ---- page frame ---- */
+body{padding-inline:var(--gutter);font-size:var(--t-base);font-variant-numeric:tabular-nums lining-nums}
+#root.wrap{max-width:var(--maxw)}
+@media (min-width:860px){body{padding-left:calc(var(--gutter) + 96px);padding-right:var(--gutter)}}
+.grid,.col{gap:var(--s4)}
+.grid{margin-top:var(--s4)}
+@media (min-width:860px){.grid,.col{gap:var(--s5)}.grid{margin-top:var(--s5)}}
+#app:has(>.sec-hero:first-child){padding-top:var(--s2)!important}
+
+/* ---- header: a section with a hero lets the hero carry the title. The h1 stays in the DOM for screen readers
+   (visually hidden); crest, eyebrow date, sync pill and menu are untouched. Pure CSS via :has() (Chrome 105+, Safari 15.4+, Firefox 121+);
+   an older browser simply shows both titles. ---- */
+#root:has(#app .sec-hero) .top h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0}
+
+/* ---- surfaces ---- */
+.card{background:var(--surface);border:0;border-radius:var(--r1);padding:var(--s4);box-shadow:var(--shadow-1)}
+@media (min-width:860px){.card{padding:var(--s5)}}
+.card.quiet,.card.flat{background:var(--surface-quiet);border:1px solid var(--hair);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.card.flat{border-color:transparent}
+.card h2{font:600 var(--t-h2)/1.15 var(--font-display);margin-bottom:var(--s4);letter-spacing:0}
+.card h2 small{font:500 var(--t-sm) var(--font-body)}
+.lbl{font-size:var(--t-eyebrow);letter-spacing:.16em}
+.big{font-size:var(--t-big);line-height:1;font-weight:500;font-variant-numeric:tabular-nums lining-nums}
+.mid{font-size:28px;font-weight:500;font-variant-numeric:tabular-nums lining-nums}
+.sep{margin-block:var(--s4)}
+
+/* ---- lists ---- */
+.li{padding:var(--s3) 0;min-height:44px}
+.card.quiet .li{border-bottom-color:var(--hair)}
+.empty{border-radius:var(--r1);border-color:var(--hair2)}
+
+/* ---- pills and chips: flat tint, no rim. Buttons are 44 tall, the visible pill is 36 (drawn by ::before) ---- */
+.pill{background:var(--tint);border:0;padding:5px 12px;font-size:12px;color:var(--mute);box-shadow:none}
+.chip,button.pill{position:relative;isolation:isolate;min-height:44px;padding:0 16px;background:none!important;border:0!important;box-shadow:none!important;display:inline-flex;align-items:center;font-size:13px;font-weight:600;line-height:1}
+.chip::before,button.pill::before{content:'';position:absolute;inset:4px 0;z-index:-1;border-radius:99px;background:var(--tint);border:1px solid transparent;transition:background .15s,border-color .15s}
+.chip[aria-pressed="true"],.chip.on,.chip:has(input:checked){background:none!important;color:var(--accent)}
+.chip[aria-pressed="true"]::before,.chip.on::before,.chip:has(input:checked)::before{background:rgba(var(--accent-rgb),.14);border-color:rgba(var(--accent-rgb),.45)}
+button.pill:hover::before,.chip:hover::before{background:rgba(238,234,224,.09)}
+.chips{gap:0 var(--s1)}
+.chips .pill:not(button){margin-block:4px}
+
+/* ---- buttons, inputs ---- */
+.btn{border-radius:12px;border-color:var(--hair2)}
+.btn.pri{box-shadow:none}
+input[type=text],input[type=number],input[type=time],input[type=date],input[type=search],input[type=password],select,textarea{border-radius:12px;border-color:var(--hair)}
+input[type=file]{display:flex;align-items:center;width:100%;min-height:44px;padding:0 var(--s3);font-size:var(--t-sm);color:var(--mute);cursor:pointer}
+input[type=file]::file-selector-button{height:32px;margin-right:var(--s3);padding:0 var(--s4);border:0;border-radius:99px;background:rgba(var(--accent-rgb),.16);color:var(--accent);font:600 13px var(--font-body);cursor:pointer}
+
+/* ---- touch targets ---- */
+summary{min-height:44px;padding-block:11px;box-sizing:border-box;cursor:pointer}
+.card h2 small a[data-act],a[data-act="tab"]{display:inline-flex;align-items:center;justify-content:flex-end;min-width:44px;min-height:44px;margin:-14px -8px -14px 0;padding:0 8px;box-sizing:border-box}
+.week{grid-template-columns:repeat(7,minmax(44px,1fr));gap:3px;overflow-x:auto;scrollbar-width:none}
+.week::-webkit-scrollbar{display:none}
+.week button,button[data-act="day-set"]{min-width:44px;min-height:44px;padding:8px 0;overflow:hidden;white-space:nowrap}
+.week button span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.week button.sel{background:rgba(var(--accent-rgb),.14);border-color:transparent;box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),.5)}
+.week button{border-color:transparent;background:var(--tint)}
+.week button.today:not(.sel){box-shadow:inset 0 0 0 1px var(--hair2)}
+
+/* ---- HERO surface ---- */
+.sec-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;
+  min-height:300px;margin-top:var(--s2);padding:var(--s5) var(--s4);border-radius:var(--r2);color:var(--fg);
+  background:linear-gradient(155deg,rgba(var(--accent-rgb),.13),rgba(11,12,12,0) 62%),linear-gradient(180deg,rgba(24,28,26,.55),rgba(11,12,12,.55))}
+body.nowall .sec-hero{background:linear-gradient(155deg,#1b211d,#101312 60%,#0b0c0c)}
+.sec-hero__shade{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(0deg,rgba(11,12,12,.84) 0,rgba(11,12,12,.68) 50%,rgba(11,12,12,.28) 100%),linear-gradient(90deg,rgba(11,12,12,.3),rgba(11,12,12,0) 70%)}
+.sec-hero__in{position:relative;display:flex;flex-direction:column;gap:var(--s2);min-width:0}
+.sec-hero__eyebrow{font:600 var(--t-eyebrow)/1.2 var(--font-body);letter-spacing:.2em;text-transform:uppercase;color:var(--accent2);text-shadow:0 1px 10px rgba(0,0,0,.6)}
+.sec-hero__title{font:500 var(--t-title)/1.02 var(--font-display);letter-spacing:-.005em;margin:0;text-shadow:0 2px 24px rgba(0,0,0,.55)}
+.sec-hero__num{font:500 var(--t-hero-num)/.95 var(--font-display);letter-spacing:-.015em;font-variant-numeric:tabular-nums lining-nums;display:flex;align-items:baseline;gap:var(--s2);text-shadow:0 2px 24px rgba(0,0,0,.5)}
+.sec-hero__num small{font:500 var(--t-md) var(--font-body);color:var(--mute);letter-spacing:.02em}
+.sec-hero__sub{margin:0;color:var(--fg);opacity:.9;font-size:var(--t-base);max-width:52ch;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+.sec-hero__chips{display:flex;flex-wrap:wrap;gap:0 var(--s1);margin-top:var(--s2)}
+.sec-hero__chips .pill{background:rgba(238,234,224,.10);color:var(--fg)}
+.sec-hero__chips .pill.acc{color:var(--accent2)}
+.sec-hero__chips .chip::before,.sec-hero__chips button.pill::before{background:rgba(238,234,224,.10)}
+.sec-hero__act{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s3)}
+@media (min-width:860px){.sec-hero{min-height:360px;padding:var(--s6) var(--s6)}}
+
+/* ---- sub-navigation (pill track, scrolls at 390) ---- */
+.subnav{display:flex;gap:var(--s1);margin-top:var(--s4);padding:var(--s1);border-radius:99px;background:var(--tint);overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;scroll-snap-type:x proximity;max-width:100%;width:max-content}
+.subnav::-webkit-scrollbar{display:none}
+.subnav button{flex:none;scroll-snap-align:center;min-height:44px;padding:0 var(--s4);border:0;border-radius:99px;background:transparent;color:var(--mute);font:600 14px var(--font-body);white-space:nowrap}
+.subnav button:hover{color:var(--fg)}
+.subnav button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:859px){
+  .subnav button{padding:0 13px}
+  /* the fade is short and the last pill is allowed to peek past it, so a fifth tab reads as "more to the right" */
+  .subnav{width:auto;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,.35));mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,.35));padding-right:var(--s7);scroll-padding-inline:var(--s4)}
+}
+
+/* ---- stat tiles ---- */
+.statrow{display:grid;gap:var(--s3);grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));margin-top:var(--s4)}
+.stat-t{display:flex;flex-direction:column;gap:var(--s1);min-width:0;padding:var(--s3) var(--s4);border-radius:var(--r1);background:var(--tint)}
+.stat-t .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-t__v{font:500 28px/1.1 var(--font-display);font-variant-numeric:tabular-nums lining-nums;overflow-wrap:anywhere}
+.stat-t__s{font-size:12px;color:var(--mute)}
+.stat-t.good .stat-t__v{color:var(--good)}.stat-t.warn .stat-t__v{color:var(--warn)}.stat-t.bad .stat-t__v{color:var(--bad)}.stat-t.acc .stat-t__v{color:var(--accent)}
+
+/* three tiles stay on one row at 390 */
+.statrow.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:520px){.statrow.n3{gap:var(--s2)}.statrow.n3 .stat-t{padding:var(--s3) var(--s2)}.statrow.n3 .stat-t__v{font-size:22px}.statrow.n3 .stat-t__s{font-size:11px}.statrow.n3 .lbl{letter-spacing:.1em}}
+
+/* ---- empty state ---- */
+.emptys{display:flex;flex-direction:column;align-items:center;gap:var(--s3);padding:var(--s6) var(--s4);text-align:center;color:var(--mute);border:1px solid var(--hair);border-radius:var(--r1)}
+.emptys p{margin:0;max-width:40ch}
+
+@media (prefers-reduced-motion:reduce){.chip::before,button.pill::before{transition:none}}
