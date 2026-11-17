@@ -50,10 +50,30 @@ a{color:var(--accent2)}
 </main>
 <script>
 const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-async function copy(text,ok){try{await navigator.clipboard.writeText(text)}catch(e){const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}if(ok){ok.hidden=false;setTimeout(()=>ok.hidden=true,2500)}}
-document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',async()=>{
-  const ok=b.parentNode.querySelector('.ok');
-  try{const r=await fetch(b.dataset.copy,{cache:'no-store'});if(!r.ok)throw 0;copy(await r.text(),ok)}catch(e){alert('Could not load the file. Open this page from the app\u2019s own address and try again.')}}));
+/* Clipboard writes only work right after a tap, so every file is loaded in advance and copied with no waiting.
+   "Copied" appears only when the copy really worked; otherwise the text is shown in a box to select by hand. */
+const FILES={};
+document.querySelectorAll('[data-copy]').forEach(b=>{const f=b.dataset.copy;if(!(f in FILES))FILES[f]=fetch(f,{cache:'no-store'}).then(r=>r.ok?r.text():Promise.reject()).then(t=>FILES[f]=t,()=>FILES[f]=null)});
+function execCopy(text){const t=document.createElement('textarea');t.value=text;t.setAttribute('readonly','');t.style.position='fixed';t.style.top='0';t.style.opacity='0';document.body.appendChild(t);t.focus();t.select();t.setSelectionRange(0,text.length);let ok=false;try{ok=document.execCommand('copy')}catch(e){}t.remove();return ok}
+function manual(where,text,file){
+  let box=where.parentNode.querySelector('.manual');
+  if(!box){box=document.createElement('div');box.className='manual';box.style.width='100%';where.parentNode.appendChild(box)}
+  if(!text){box.innerHTML='<p class="note">Could not load this file. Open <a href="'+file+'" target="_blank" rel="noopener">the file as plain text</a>, select all and copy.</p>';return}
+  box.innerHTML='<p class="note">Your browser blocked the copy. Tap inside the box, select all (<b>Ctrl+A</b> on a laptop, or press and hold then <b>Select All</b> on iPhone), then copy.'+(file?' Or open <a href="'+file+'" target="_blank" rel="noopener">the file as plain text</a> and copy from there.':'')+'</p><textarea class="val" readonly rows="8" style="width:100%;min-height:160px"></textarea>';
+  const ta=box.querySelector('textarea');ta.value=text;ta.focus();ta.select();
+}
+function copy(text,ok,where,file){
+  const show=()=>{if(ok){ok.hidden=false;setTimeout(()=>ok.hidden=true,2500)}const m=where&&where.parentNode.querySelector('.manual');if(m)m.remove()};
+  if(execCopy(text)){show();return}
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(show,()=>manual(where,text,file));
+  else manual(where,text,file);
+}
+document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
+  const ok=b.parentNode.querySelector('.ok'),f=b.dataset.copy,t=FILES[f];
+  if(typeof t==='string'){copy(t,ok,b,f);return}
+  if(t===null){manual(b,'',f);return}
+  Promise.resolve(t).then(v=>manual(b,typeof v==='string'?v:'',f)); /* still loading: show it to copy by hand */
+}));
 document.getElementById('gen').addEventListener('click',async()=>{
   const k=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
   const pub=b64u(await crypto.subtle.exportKey('raw',k.publicKey)),jwk=await crypto.subtle.exportKey('jwk',k.privateKey);
@@ -68,7 +88,7 @@ document.getElementById('cron').addEventListener('click',()=>{
   err.hidden=true;
   const q=s=>s.replace(/'/g,"''");
   const sql="create extension if not exists pg_cron;\ncreate extension if not exists pg_net;\nselect cron.unschedule(jobid) from cron.job where jobname = 'ld-remind';\nselect cron.schedule('ld-remind', '*/5 * * * *', $job$\n  select net.http_post(\n    url := '"+q(url)+"/functions/v1/remind',\n    headers := jsonb_build_object('Content-Type','application/json','apikey','"+q(key)+"','x-app-secret','"+q(sec)+"'),\n    body := '{}'::jsonb\n  );\n$job$);\n";
-  copy(sql,document.getElementById('cronok'));
+  copy(sql,document.getElementById('cronok'),document.getElementById('cron'));
 });
 /* progress */
 let done={};try{done=JSON.parse(localStorage.getItem('ld-setup-done')||'{}')}catch(e){}
