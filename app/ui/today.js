@@ -38,11 +38,12 @@
     }
   }catch(e){}
 
-  /* night now starts at 22:30 (was 21:30); the rest is unchanged */
+  /* night now starts at 22:30 (was 21:30); during the 8-week programme it starts at 20:30 so "Close the day" shows before bedtime */
+  const prog=d=>!!(window.PROGRAM&&PROGRAM.on(d));
   dayPeriod=function(){
     if(state.date!==todayStr())return 'day';
     const n=new Date(),h=n.getHours()+n.getMinutes()/60,hh=h<DAYEND?h+24:h;
-    return hh>=22.5?'night':hh<11?'morning':'day';
+    return hh>=(prog(state.date)?PROGRAM.nightFrom:22.5)?'night':hh<11?'morning':'day';
   };
 
   const PERL={morning:'Morning',day:'Daytime',night:'Night'};
@@ -149,6 +150,7 @@
       .replace('placeholder="What worked this week? One thing to change next week."','placeholder="The habit, routine or choice that paid off"');
     return '<section class="card td-ritual" data-td="ritual">'+
       (prev?'<p class="td-last">Last week you chose: <b>'+esc(prev)+'</b></p>':'')+w+
+      (prog(d)?'<div class="sep"></div><h2 style="font-size:18px;margin:0 0 var(--s3)">Check-in</h2>'+PROGRAM.checkinHtml(d)+'<div class="sep"></div>':'')+
       '<div class="td-q"><label class="fld"><span>One thing to change</span><input type="text" id="revfix" data-change="revfix" maxlength="160" value="'+esc(dd.fix||'')+'" placeholder="Small and specific"></label>'+
       '<label class="fld"><span>Next week’s single focus</span><input type="text" id="revfocus" data-change="revfocus" maxlength="160" value="'+esc(dd.focus||'')+'" placeholder="One thing, said plainly"></label></div></section>';
   }
@@ -156,7 +158,7 @@
   vToday=function(){
     const d=state.date,cfg=C(),T=cfg.targets,H=habits(d),dd=day(d),tot=totals(d),t=todayStr();
     const wk=weekIndex(d),plan=PLAN[DOW[parse(d).getDay()]];
-    const planTxt=wk<1?('Plan starts '+dlabel(cfg.planStart)):(wk>cfg.planWeeks?'Plan complete':('Week '+wk+' · '+plan.name));
+    const planTxt=prog(d)?PROGRAM.label(d,plan):wk<1?('Plan starts '+dlabel(cfg.planStart)):(wk>cfg.planWeeks?'Plan complete':('Week '+wk+' · '+plan.name));
     const nx=acadList().filter(a=>a.d&&!a.done&&diff(a.d,t)>=0).sort((a,b)=>a.d<b.d?-1:1)[0];
     const per=dayPeriod(),ex=examOn(d),sun=parse(d).getDay()===0,ritual=sun&&d===t;
     const ne=ex?examsFrom(d)[0]:null,si=streakInfo(),run=si.run,left=H.total-H.done;
@@ -209,6 +211,7 @@
 
     return hero+dateNav()+(ex?examBanner(d):'')+
       '<div class="td-glance">'+glance+streakLine+'</div>'+
+      (window.PROGRAM&&PROGRAM.photoDue(d)?'<div class="grid" style="margin-top:14px">'+PROGRAM.photoCard(d)+'</div>':'')+
       (top3Html?'<div class="grid">'+top3Html+'</div>':'')+
       '<div class="grid w2" style="margin-top:14px">'+html(top)+'</div>'+
       '<div style="margin-top:14px">'+nudgesPlus()+'</div>'+
@@ -228,8 +231,8 @@
     if(pv==='week')body='<div class="grid">'+weekCard()+insightsCard()+patternsCard()+'</div>';
     else if(pv==='body'){
       const wd=state.date,wc=day(wd).waist;
-      body='<div class="grid w2"><section class="card"><h2>Weight against plan</h2>'+chart()+'<p class="faint" style="font-size:12px;margin:10px 0 0">The dashed line is the pace to '+cfg.goalWeight+' kg.</p></section>'+
-        '<section class="card"><h2>Weekly check-in<small>'+dlabel(wd)+'</small></h2><div class="fgrid"><label class="fld"><span>Waist at navel (cm)</span><input type="number" step="0.1" inputmode="decimal" id="waist" value="'+(wc??'')+'" data-change="waist"></label></div><p class="muted" style="font-size:12px;margin:10px 0 0">Measure once a week, same time and conditions. Take photos on weeks 0, 2, 4, 6 and 8.</p></section>'+
+      body='<div class="grid w2"><section class="card"><h2>Weight against plan</h2>'+chart()+'<p class="faint" style="font-size:12px;margin:10px 0 0">'+(prog(t)?'The line is your 7-day average weight; the dashed line runs through the plan checkpoints (68.5 kg at the end of week 4, '+cfg.goalWeight+' kg at the end of week 8).':'The dashed line is the pace to '+cfg.goalWeight+' kg.')+'</p></section>'+
+        (prog(t)?'<section class="card"><h2>Weekly check-in<small>'+dlabel(wd)+'</small></h2>'+PROGRAM.checkinHtml(wd)+'<p class="muted" style="font-size:12px;margin:10px 0 0">Take photos on Sundays ending weeks 2, 4, 6 and 8: front, side, back, same light.</p></section>':'<section class="card"><h2>Weekly check-in<small>'+dlabel(wd)+'</small></h2><div class="fgrid"><label class="fld"><span>Waist at navel (cm)</span><input type="number" step="0.1" inputmode="decimal" id="waist" value="'+(wc??'')+'" data-change="waist"></label></div><p class="muted" style="font-size:12px;margin:10px 0 0">Measure once a week, same time and conditions. Take photos on weeks 0, 2, 4, 6 and 8.</p></section>')+
         bmiCard()+sleepCard()+'</div><div class="grid">'+picsCard()+'</div>';
     }else if(pv==='habits'){
       const last7=[];for(let i=6;i>=0;i--)last7.push(addDays(t,-i));
@@ -243,9 +246,9 @@
       body='<div class="grid"><section class="card"><h2>Money this month</h2><div class="row sp"><span class="mono mid">'+inr(ms.total)+'</span><span class="muted" style="font-size:13px">of '+inr(cfg.limit)+'</span></div><div class="bar '+(ms.total>cfg.limit?'bad':'')+'" style="margin-top:10px"><i style="width:'+clamp(ms.total/cfg.limit*100,0,100)+'%"></i></div></section>'+monthCard()+'</div>';
     }else{
       const si=streakInfo(),wk=weekIndex(t),plan=PLAN[DOW[parse(t).getDay()]];
-      const planTxt=wk<1?('Starts '+dlabel(cfg.planStart)):(wk>cfg.planWeeks?'Complete':('Week '+wk+' of '+cfg.planWeeks+' · '+plan.name));
+      const planTxt=prog(t)?PROGRAM.label(t,plan):wk<1?('Starts '+dlabel(cfg.planStart)):(wk>cfg.planWeeks?'Complete':('Week '+wk+' of '+cfg.planWeeks+' · '+plan.name));
       body='<div class="grid"><section class="card quiet"><h2>Streak and plan</h2>'+statRow([{label:'Streak',value:si.run+' d'},{label:'Best',value:si.best+' d'},{label:'Freezes',value:String(si.tok),sub:si.used?si.used+' used':'none used'}])+
-        '<p class="muted" style="font-size:13px;margin:12px 0 0">8-week plan: '+esc(planTxt)+'. A freeze covers one missed day automatically; you earn one for every 7 good days, up to 2.</p></section></div>';
+        '<p class="muted" style="font-size:13px;margin:12px 0 0">'+(prog(t)?'8-week programme: ':'8-week plan: ')+esc(planTxt)+'. A freeze covers one missed day automatically; you earn one for every 7 good days, up to 2.</p></section></div>';
     }
     return '<div class="row td-back"><button class="btn sm ghost" data-act="tab" data-v="today">‹ Back to Today</button></div>'+hero+subNav(PV,pv,'progview')+body;
   };

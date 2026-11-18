@@ -81,8 +81,8 @@ async def main():
     ok('"All of today" fold holds the gym card at 23:00',await p.evaluate("!!document.querySelector('details[data-det=alltoday] [data-act=habit][data-key=gym]')"))
     ok('fold also holds the wake and weigh-in cards at night',await p.evaluate("(()=>{const f=document.querySelector('details[data-det=alltoday]');return !!f.querySelector('#wt2')})()"))
     errs+=p.errs;await c.close()
-    c,p=await at(b,WED+'T21:45:00+05:30')
-    ok('21:45 is still daytime (night starts 22:30)',await p.evaluate("dayPeriod()")=='day')
+    c,p=await at(b,WED+'T20:15:00+05:30')
+    ok('20:15 is still daytime (programme day: night starts 20:30; the old 22:30 rule applies before 30 Nov)',await p.evaluate("dayPeriod()")=='day')
     errs+=p.errs;await c.close()
 
     # ---- exam week

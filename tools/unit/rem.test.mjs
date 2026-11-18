@@ -62,3 +62,37 @@ test('nowIn returns sane shape',()=>{
   const f=R.nowIn('Asia/Kolkata',new Date('2026-11-11T20:00:00Z'));
   EQ(f,{ymd:'2026-11-12',min:90});
 });
+/* programme switch: sched.next applies from its logical start date */
+const withNext=()=>({...base(),water:undefined,
+  items:[{k:'mob',on:true,time:'08:05',title:'Mobility'},{k:'gym',on:true,time:'17:15',title:'Gym'},{k:'bed',on:true,time:'00:30',title:'Bedtime'}],
+  gymByDow:{Sun:'Rest',Mon:'Push',Tue:'Pull',Wed:'Zone 2',Thu:'Arms',Fri:'Chest',Sat:'Rest'},
+  protein:{on:true,time:'21:30',target:120},
+  next:{from:'2026-11-30',
+    items:[{k:'mob',on:true,time:'06:10',title:'Mobility'},{k:'gym',on:true,time:'06:15',title:'Gym'},{k:'bed',on:true,time:'22:15',title:'Bedtime'}],
+    gymByDow:{Sun:'Rest',Mon:'Push + abs',Tue:'Pull',Wed:'Cardio',Thu:'Legs + abs',Fri:'Upper + abs',Sat:'Cardio or long walk'},
+    protein:{on:true,time:'20:30',target:150}}});
+test('next: the day before the switch still uses the old times',()=>{
+  EQ(keys(withNext(),'2026-11-29',8*60+5),['mob:2026-11-29']);
+  EQ(keys(withNext(),'2026-11-29',6*60+10),[]);
+  EQ(keys(withNext(),'2026-11-29',22*60+15),[]);
+  EQ(keys(withNext(),'2026-11-29',21*60+30,{protein:100}),['protein:2026-11-29']);
+});
+test('next: from 30 Nov the new times apply, including mobility at 06:10',()=>{
+  EQ(keys(withNext(),'2026-11-30',6*60+10),['mob:2026-11-30']);
+  EQ(keys(withNext(),'2026-11-30',8*60+5),[]);
+  EQ(keys(withNext(),'2026-11-30',22*60+15),['bed:2026-11-30']);
+  EQ(keys(withNext(),'2026-11-30',20*60+30,{protein:100}),['protein:2026-11-30']);
+  EQ(keys(withNext(),'2026-11-30',21*60+30,{protein:100}),[]);
+});
+test('next: gym title uses the programme session and rest days follow its table',()=>{
+  const mon=R.due(withNext(),{ymd:'2026-11-30',min:6*60+15,win:2},()=>({}));
+  assert.equal(mon[0].title,'Gym: Push + abs');
+  assert.equal(R.due(withNext(),{ymd:'2026-12-06',min:6*60+15,win:2},()=>({})).length,0);
+  assert.equal(R.due(withNext(),{ymd:'2026-12-02',min:6*60+15,win:2},()=>({}))[0].title,'Gym: Cardio');
+});
+test('next: 00:30 on 30 Nov is still the logical 29 Nov, so the old bedtime applies',()=>{
+  EQ(R.due(withNext(),{ymd:'2026-11-30',min:31,win:2},()=>({})).map(x=>x.key),['bed:2026-11-29']);
+});
+test('no next: behaviour unchanged',()=>{
+  EQ(keys(base(),'2026-12-05',17*60+1),['creatine:2026-12-05']);
+});

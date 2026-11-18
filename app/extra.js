@@ -265,9 +265,26 @@ function setupCard(){
 /* ---------- reminders ---------- */
 const REM_DEF={on:true,items:{mob:{on:true,time:'08:05'},creatine:{on:true,time:'17:00'},gym:{on:true,time:'17:15'},bed:{on:true,time:'00:30'}},
   water:{on:true,start:'10:00',end:'00:00',every:120,onlyBehind:true},protein:{on:true,time:'21:30'},deadlines:{on:true,eve:'20:00',morn:'09:00'}};
-function remCfg(){const r=C().rem||{};return {...REM_DEF,...r,items:{...REM_DEF.items,...(r.items||{})},water:{...REM_DEF.water,...(r.water||{})},protein:{...REM_DEF.protein,...(r.protein||{})},deadlines:{...REM_DEF.deadlines,...(r.deadlines||{})}}}
+/* prog=true gives the 8-week programme's reminder times (own edits live at cfg.program.rem, never cfg.rem); omitted = whichever applies today */
+const remProg=()=>!!(window.PROGRAM&&PROGRAM.on(todayStr()));
+function remCfg(prog){
+  const r=C().rem||{},b={...REM_DEF,...r,items:{...REM_DEF.items,...(r.items||{})},water:{...REM_DEF.water,...(r.water||{})},protein:{...REM_DEF.protein,...(r.protein||{})},deadlines:{...REM_DEF.deadlines,...(r.deadlines||{})}};
+  if(prog==null)prog=remProg();
+  if(!prog||!window.PROGRAM)return b;
+  const o=PROGRAM.remDefaults,q=(C().program||{}).rem||{},it={};
+  Object.keys(b.items).forEach(k=>{it[k]={...b.items[k],...((o.items||{})[k]||{}),...((q.items||{})[k]||{})}});
+  return {...b,on:q.on!=null?q.on:b.on,items:it,water:{...b.water,...o.water,...(q.water||{})},protein:{...b.protein,...o.protein,...(q.protein||{})},deadlines:{...b.deadlines,...(q.deadlines||{})}};
+}
+/* the published schedule carries both: the current one, and next={from} for the programme, so the phone switches on 30 Nov even if the app is not opened */
 function remSchedule(){
-  const r=remCfg(),cfg=C(),T=cfg.targets,t=RemCore.nowIn('Asia/Kolkata').ymd;
+  if(!window.PROGRAM)return remBuild(false);
+  const s=remBuild(false),n=remBuild(true);
+  s.next={from:PROGRAM.start,on:n.on,items:n.items,water:n.water,protein:n.protein,deadlines:n.deadlines,gymByDow:n.gymByDow};
+  return s;
+}
+function remBuild(prog){return window.PROGRAM?PROGRAM.withMode(prog,()=>remBuild1(prog)):remBuild1(false)}
+function remBuild1(prog){
+  const r=remCfg(prog),cfg=C(),T=cfg.targets,t=RemCore.nowIn('Asia/Kolkata').ymd;
   const gymByDow={};DOW.forEach(k=>gymByDow[k]=PLAN[k].name);
   const dl=acadList().filter(a=>a.d&&!a.done&&diff(a.d,t)>=0&&diff(a.d,t)<=60).map(a=>({id:a.id,d:a.d,t:a.t,c:COURSES[a.c]||''}));
   xFollowups(t,0,60).forEach(x=>dl.push({id:x.id,d:x.d,t:x.t,c:x.c}));
@@ -315,11 +332,11 @@ async function pushEnable(){
   }catch(e){return 'Notifications are allowed, but push could not be registered: '+String(e.message||e)}
 }
 function remSheet(msg){
-  const r=remCfg(),perm=('Notification' in window)?Notification.permission:'unsupported',push=!!LD.kvGet('pushOn');
+  const r=remCfg(),prog=remProg(),perm=('Notification' in window)?Notification.permission:'unsupported',push=!!LD.kvGet('pushOn');
   const tm=(n,v,l)=>'<label class="fld"><span>'+l+'</span><input type="time" name="'+n+'" value="'+esc(v)+'"></label>';
   const ck=(n,v,l)=>'<label class="chip"><input type="checkbox" name="'+n+'"'+(v?' checked':'')+'>'+l+'</label>';
   const state1=perm==='granted'?(push?'Push is on for this device: reminders arrive even when the app is closed.':'Allowed on this device. Reminders show while the app is open; connect the cloud and tap the button again for push when it is closed.'):perm==='denied'?'Blocked in your device settings.':perm==='unsupported'?'Not available in this browser. On iPhone, install the app to the home screen first.':'Not turned on yet for this device.';
-  sheet('<h2>Reminders</h2><p class="muted" style="font-size:13px">'+state1+'</p>'+(msg?'<p style="font-size:13px;color:var(--warn)">'+esc(msg)+'</p>':'')+
+  sheet('<h2>Reminders</h2><p class="muted" style="font-size:13px">'+state1+'</p>'+(prog?'<p class="faint" style="font-size:12px;margin:0 0 8px">These are your programme times. Your earlier reminder times are kept.</p>':'')+(msg?'<p style="font-size:13px;color:var(--warn)">'+esc(msg)+'</p>':'')+
    '<div class="row wrap" style="margin-bottom:12px"><button class="btn pri" data-x="pushon">'+(perm==='granted'?'Refresh this device':'Turn on for this device')+'</button><button class="btn" data-x="pushtest">Send a test</button></div>'+
    '<form data-xform="rem" class="stack">'+ck('on',r.on,'Reminders on')+
    '<div class="fgrid">'+ck('mob',r.items.mob.on,'Mobility')+tm('mobT',r.items.mob.time,'Mobility at')+ck('creatine',r.items.creatine.on,'Creatine')+tm('creatineT',r.items.creatine.time,'Creatine at')+ck('gym',r.items.gym.on,'Gym')+tm('gymT',r.items.gym.time,'Gym at')+ck('protein',r.protein.on,'Protein check')+tm('proteinT',r.protein.time,'Protein check at')+ck('bed',r.items.bed.on,'Bedtime')+tm('bedT',r.items.bed.time,'Bedtime at')+'</div>'+
@@ -484,10 +501,11 @@ document.addEventListener('submit',async ev=>{
   if(k==='semmiles'){const keep=(sm.miles||[]).filter(m=>!/classes end|exams begin|exams end/i.test(m.t)),add=[];if(v('ce'))add.push({d:v('ce'),t:'Classes end'});if(v('eb'))add.push({d:v('eb'),t:'End-semester exams begin'});if(v('ee'))add.push({d:v('ee'),t:'End-semester exams end'});semSave({...sm,miles:[...keep,...add].sort((a,b)=>a.d<b.d?-1:1)});return}
   if(k==='semnew'){const name=v('name');if(!name)return;const arch=(C().semArchive||[]).concat([{...sm,archivedAt:todayStr()}]);saveCfg({semArchive:arch});semSave({name,courses:[],items:[],miles:[]});toast('New semester started. The old one is archived.',{noUndo:true});return}
   if(k==='rem'){
-    const on=n=>fd.get(n)==='on',tm=(n,d)=>/^\d{2}:\d{2}$/.test(v(n))?v(n):d,r=remCfg();
+    const on=n=>fd.get(n)==='on',tm=(n,d)=>/^\d{2}:\d{2}$/.test(v(n))?v(n):d,prog=remProg(),r=remCfg(prog);
     const ev2=clamp(+v('waterEv')||120,30,360);
-    saveCfg({rem:{on:on('on'),items:{mob:{on:on('mob'),time:tm('mobT',r.items.mob.time)},creatine:{on:on('creatine'),time:tm('creatineT',r.items.creatine.time)},gym:{on:on('gym'),time:tm('gymT',r.items.gym.time)},bed:{on:on('bed'),time:tm('bedT',r.items.bed.time)}},
-      water:{on:on('water'),start:tm('waterS',r.water.start),end:tm('waterE',r.water.end),every:ev2,onlyBehind:on('waterB')},protein:{on:on('protein'),time:tm('proteinT',r.protein.time)},deadlines:{on:on('dl'),eve:tm('dlE',r.deadlines.eve),morn:tm('dlM',r.deadlines.morn)}}});
+    const remPatch=x=>prog?{program:{...(C().program||{}),rem:x}}:{rem:x};
+    saveCfg(remPatch({on:on('on'),items:{mob:{on:on('mob'),time:tm('mobT',r.items.mob.time)},creatine:{on:on('creatine'),time:tm('creatineT',r.items.creatine.time)},gym:{on:on('gym'),time:tm('gymT',r.items.gym.time)},bed:{on:on('bed'),time:tm('bedT',r.items.bed.time)}},
+      water:{on:on('water'),start:tm('waterS',r.water.start),end:tm('waterE',r.water.end),every:ev2,onlyBehind:on('waterB')},protein:{on:on('protein'),time:tm('proteinT',r.protein.time)},deadlines:{on:on('dl'),eve:tm('dlE',r.deadlines.eve),morn:tm('dlM',r.deadlines.morn)}}));
     closeSheet();toast('Reminders saved',{noUndo:true});return}
 });
 

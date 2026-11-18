@@ -35,21 +35,22 @@
 
   /* ---------- Train ---------- */
   function newTrain(){
-    const d=state.date,cfg=C(),wk=clamp(weekIndex(d),1,cfg.planWeeks),dowN=parse(d).getDay(),plan=PLAN[DOW[dowN]],dd=day(d);
+    const d=state.date,cfg=C(),prog=!!(window.PROGRAM&&PROGRAM.on(d)),wk=prog?PROGRAM.week(d):clamp(weekIndex(d),1,cfg.planWeeks),dowN=parse(d).getDay(),plan=PLAN[DOW[dowN]],dd=day(d);
     const t=document.createElement('template');t.innerHTML=oldTrain();
     const root=t.content,html=el=>el?el.outerHTML:'';
     const rest=plan.name==='Rest';
-    let planned=0;(plan.ex||[]).forEach(e=>{planned+=wk===4?Math.max(1,Math.round(e.s*.6)):(wk>=5&&wk<=7&&e.p?e.s+1:e.s)});
+    let planned=0;(plan.ex||[]).forEach(e=>{planned+=prog?e.s:wk===4?Math.max(1,Math.round(e.s*.6)):(wk>=5&&wk<=7&&e.p?e.s+1:e.s)});
     let logged=0;Object.values(dd.lifts||{}).forEach(a=>{logged+=(a||[]).length});
-    const rir=RIR[wk-1],gymDone=!!(dd.habits||{}).gym;
+    const rir=prog?PROGRAM.rir(wk):RIR[wk-1],gymDone=!!(dd.habits||{}).gym;
     let sub;
     if(rest)sub='No lifting today. Hit your steps and recover.';
     else if(!(plan.ex||[]).length)sub=plan.cardio||'Cardio day.';
+    else if(prog)sub=PROGRAM.effort(wk)+' '+PROGRAM.doubleProgression;
     else sub='Stop with '+rir+' reps in reserve on working sets.'+(wk===4?' Deload week: fewer sets, keep the weights.':'')+(wk>=5&&wk<=7?' Priority lifts get one extra set.':'')+(wk===8?' Test week: set rep records, then take final measurements.':'');
     const chips=[{text:rest?'Rest':plan.min+' min',tone:'acc'}];
     if(d!==todayStr())chips.push(dlabel(d));
     if(gymDone&&!rest)chips.push({text:'Session done',tone:'good'});
-    const hero=secHero({scene:'gym',eyebrow:'Train · Week '+wk+' of '+cfg.planWeeks,title:rest?'Rest day':plan.name,
+    const hero=secHero({scene:'gym',eyebrow:'Train · '+(prog?(wk===PROGRAM.maintWeek?'Maintenance week':'Week '+wk+(wk<=PROGRAM.weeks?' of '+PROGRAM.weeks:'')):'Week '+wk+' of '+cfg.planWeeks),title:rest?'Rest day':plan.name,
       number:(!rest&&planned>0)?String(logged):'',unit:(!rest&&planned>0)?'of '+planned+' sets':'',sub:sub,chips:chips,
       actions:rest?[]:['<button class="btn '+(gymDone?'':'pri')+'" data-act="habit" data-key="gym">'+(gymDone?'Session marked done':'Mark session done')+'</button>']});
     /* deload card is a plain card here: the hero above is the only hero */
@@ -187,9 +188,11 @@
     const stats=statRow([{label:'Calories',value:String(Math.round(tot.kcal)),sub:'of '+T.kcal+' kcal'},mac('Carbs',tot.c,T.carbs,tot.nM,tot.cK),mac('Fat',tot.f,T.fat,tot.nM,tot.fK)]);
     const mealsCard='<section class="card"><h2>Meals<small>'+meals.length+' logged</small></h2>'+(meals.length?'<div class="list">'+meals.map(mealRow).join('')+'</div>':emptyState('Nothing logged for '+dlabel(d)+' yet. Describe a meal above and tap Estimate.'))+'</section>';
     const water='<section class="card"><h2>Water<small>'+(tot.water/1000).toFixed(2)+' of '+(T.waterMl/1000)+' L</small></h2>'+slideTile({icon:IC2.water,label:'Today',key:'water',val:Math.max(0,tot.water),min:0,max:5000,step:50,fmt:v=>v.toLocaleString('en-IN')+' ml',target:T.waterMl,targetTxt:(T.waterMl/1000)+' L goal',btns:[-50,50,250]})+'</section>';
+    const prog=!!(window.PROGRAM&&PROGRAM.on(d));
+    const warn=prog?PROGRAM.fuelWarn(d):'',planMeals=prog?PROGRAM.mealsCard(d):'';
     const quick='<section class="card"><h2>Quick add<small>reference portions</small></h2>'+foodChips()+'</section>';
     const manual='<section class="card quiet"><details><summary style="cursor:pointer;font-weight:600">Enter numbers yourself</summary><form class="stack" data-form="meal" style="margin-top:12px"><label class="fld"><span>Name</span><input type="text" name="name" placeholder="Paneer bhurji" required></label><div class="fgrid"><label class="fld"><span>kcal</span><input type="number" name="kcal" inputmode="numeric" required></label><label class="fld"><span>Protein g</span><input type="number" name="p" inputmode="decimal"></label><label class="fld"><span>Carbs g</span><input type="number" name="c" inputmode="decimal"></label><label class="fld"><span>Fat g</span><input type="number" name="f" inputmode="decimal"></label></div><div><button class="btn pri" type="submit">Add meal</button></div></form></details></section>';
-    return hero+seg('fuel')+dateNav()+stats+'<div class="grid w2"><div class="col">'+mealCard()+mealsCard+'</div><div class="col">'+water+quiet(tplCard())+quick+manual+'</div></div>';
+    return hero+seg('fuel')+dateNav()+warn+stats+'<div class="grid w2"><div class="col">'+mealCard()+mealsCard+'</div><div class="col">'+water+planMeals+quiet(tplCard())+quick+manual+'</div></div>';
   }
 
   /* ---------- events (own data-form / data-act names; the base handlers ignore them) ---------- */

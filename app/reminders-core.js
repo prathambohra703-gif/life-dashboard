@@ -8,10 +8,13 @@ const L=v=>(v/1000).toFixed(v%1000===0?0:1)+' L';
 /* sched: the "reminders" document the app publishes.
    ctx: {ymd, min} = calendar date and minutes past midnight in the user's time zone; win = look-back window in minutes.
    dayOf(date) -> {water, protein, habits} for a logical date. */
-function due(sched,ctx,dayOf){
-  const out=[];if(!sched||!sched.on)return out;
-  const win=ctx.win||5,de=(sched.dayEnd==null?4:sched.dayEnd)*60;
+function due(sched0,ctx,dayOf){
+  const out=[];if(!sched0)return out;
+  const win=ctx.win||5,de=(sched0.dayEnd==null?4:sched0.dayEnd)*60;
   const late=ctx.min<de,ld=late?addDays(ctx.ymd,-1):ctx.ymd,lm=late?ctx.min+1440:ctx.min;
+  /* optional sched.next={from:'YYYY-MM-DD',items,water,protein,deadlines,gymByDow,on}: from that logical date on, its settings replace the base ones */
+  const nx=sched0.next,sched=(nx&&nx.from&&ld>=nx.from)?{...sched0,on:nx.on==null?sched0.on:nx.on,items:nx.items||sched0.items,water:nx.water||sched0.water,protein:nx.protein||sched0.protein,deadlines:nx.deadlines||sched0.deadlines,gymByDow:nx.gymByDow||sched0.gymByDow,next:null}:sched0;
+  if(!sched.on)return out;
   const hit=t=>{let m=tmin(t);if(m==null)return false;if(m<de)m+=1440;return m<=lm&&m>lm-win};
   const day=dayOf(ld)||{},hab=day.habits||{};
   (sched.items||[]).forEach(it=>{
