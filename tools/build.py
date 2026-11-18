@@ -148,7 +148,7 @@ for dead in ('QUOTES','applyTheme','setTheme','themeset','lifeDash.theme','theme
 
 # ---- design layers: included only when the file exists at build time
 import os,hashlib
-LAYERS=[f'ui/{n}.js' for n in ('common','program','wall','today','body','money','study','career')]
+LAYERS=[f'ui/{n}.js' for n in ('common','program','wall','today','paper','body','money','study','career')]
 have=[f for f in LAYERS if os.path.exists('./app/'+f)]
 rep('<script src="extra.js"></script>\n','<script src="extra.js"></script>\n'+''.join(f'<script src="{f}"></script>\n' for f in have))
 css=['ui/design.css'] if os.path.exists('./app/ui/design.css') else []

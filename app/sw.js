@@ -1,9 +1,9 @@
 /* Service worker: makes the app open offline and shows push reminders. */
 /* V and OPT are rewritten by tools/build.py on every build */
-const V='ld-v2-4d04baa2';
+const V='ld-v2-b1386221';
 const SHELL=['./','index.html','store.js','reminders-core.js','extra.js','theme.css','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png','icons/badge.png','fonts/cormorant-500.woff2','fonts/cormorant-600.woff2','fonts/figtree-var.woff2'];
 /* design layers and images, included when the build found them */
-const OPT=['ui/common.js','ui/program.js','ui/wall.js','ui/today.js','ui/body.js','ui/money.js','ui/study.js','ui/career.js','ui/design.css','img/arch-1600.webp','img/arch-800.webp','img/arch-thumb.jpg','img/coast-1600.webp','img/coast-800.webp','img/coast-thumb.jpg','img/gym-1600.webp','img/gym-800.webp','img/gym-thumb.jpg','img/ridge-1600.webp','img/ridge-800.webp','img/ridge-thumb.jpg','img/study-1600.webp','img/study-800.webp','img/study-thumb.jpg','img/table-1600.webp','img/table-800.webp','img/table-thumb.jpg'];
+const OPT=['ui/common.js','ui/program.js','ui/wall.js','ui/today.js','ui/paper.js','ui/body.js','ui/money.js','ui/study.js','ui/career.js','ui/design.css','img/arch-1600.webp','img/arch-800.webp','img/arch-thumb.jpg','img/coast-1600.webp','img/coast-800.webp','img/coast-thumb.jpg','img/gym-1600.webp','img/gym-800.webp','img/gym-thumb.jpg','img/ridge-1600.webp','img/ridge-800.webp','img/ridge-thumb.jpg','img/study-1600.webp','img/study-800.webp','img/study-thumb.jpg','img/table-1600.webp','img/table-800.webp','img/table-thumb.jpg'];
 /* cache each file on its own: one missing file must not stop the app installing */
 const grab=(c,u)=>fetch(u,{cache:'reload'}).then(r=>r.ok?c.put(u,r):null).catch(()=>null);
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>Promise.all(SHELL.concat(OPT).map(u=>grab(c,u)))).then(()=>self.skipWaiting()))});
