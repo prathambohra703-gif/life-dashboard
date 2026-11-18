@@ -142,8 +142,21 @@ cfaSystem=function(){
 function wlIsAuto(p){return !!p&&(p.auto===true||(Array.isArray(p.items)&&p.items.some(i=>i&&i.auto===true)))}
 /* ---------- nightly review inbox: proposals wait here until approved ---------- */
 LD.opened.then(()=>{LD.onCol('proposals',s=>{XS.props=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();setTimeout(agentDot,0)});LD.onCol('meta',()=>setTimeout(agentDot,0))});
-function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case',course:'Add a course'})[it.kind]||'Suggestion'}
-function propText(it){return it.kind==='case'?(it.name||'')+(it.point?' — '+it.point:''):(it.text||it.title||it.cmd||it.t||it.name||'')}
+function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case',course:'Add a course',habit:'Tick a habit',expense:'Add an expense',income:'Add income',ask:'Question',water:'Log water',food:'Log food',weight:'Log weight',workout:'Log a workout'})[it.kind]||'Suggestion'}
+/* the readable line of a suggestion; for kinds without a text field, build one from its fields so a row is never blank */
+function propText(it){
+  if(it.kind==='case')return (it.name||'')+(it.point?' — '+it.point:'');
+  const t=it.text||it.title||it.cmd||it.t||it.name||it.question||'';if(t)return t;
+  const bits=[];
+  if(it.key)bits.push(String(it.key).replace(/[-_]/g,' '));
+  if(it.note&&it.note!==it.category)bits.push(it.note);
+  if(it.category)bits.push(it.category);
+  if(it.amount!=null)bits.push('₹'+it.amount);
+  ['ml','grams','kg','minutes','protein','kcal'].forEach(k=>{if(it[k]!=null)bits.push(it[k]+' '+k)});
+  if(it.account)bits.push('from '+it.account);
+  if(it.date)bits.push(it.date);
+  return bits.join(' · ')||String(it.kind||'Suggestion');
+}
 function propsCard(){
   const open=[];XS.props.forEach(p=>{if(wlIsAuto(p))return;(p.items||[]).forEach((it,i)=>{if(!it.status)open.push({p,it,i})})});
   if(!open.length)return '';
@@ -583,8 +596,16 @@ function installSheet(){
 }
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
   navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service worker not registered',e));
-  let had=!!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had)toast('Updated to the latest version. Reopen the app to use it.',{noUndo:true});had=true});
+  let had=!!navigator.serviceWorker.controller,reloaded=false;
+  /* a new version took over: reload straight away unless he is typing or has a sheet open, then on the next return to the app */
+  const busy=()=>{const a=document.activeElement;return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||!!document.querySelector('#layer .sheet')};
+  const fresh=()=>{if(reloaded)return;if(busy()){toast('A new version is ready. It loads next time you open the app.',{noUndo:true});return}reloaded=true;location.reload()};
+  let pending=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(document.visibilityState==='visible')fresh();else pending=true});
+  /* look for a new version whenever he comes back to the app, and every 30 minutes while it stays open */
+  const check=()=>navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;if(pending){pending=false;fresh();return}check()});
+  setInterval(check,30*60*1000);
 }
 
 /* ---------- calendar feed: a private link Apple or Google Calendar subscribes to ---------- */
