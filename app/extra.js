@@ -299,15 +299,15 @@ const AGENTS=[
   {key:'health',name:'Health check',what:'Checks sync, backups and the other agents.',hrs:36,meta:'agent-health'},
   {key:'sunday',name:'Sunday review prep',what:'Prepares your weekly review.',hrs:240,meta:'agent-sunday'},
   {key:'monthend',name:'Month-end report',what:'Writes the month-end summary.',hrs:840,meta:'agent-monthend'},
-  {key:'cfa',name:'CFA coach',what:'Plans and checks your CFA study.',hrs:36,meta:'agent-cfa'},
-  {key:'journal',name:'Journal scout',what:'Looks for journal and writing opportunities.',hrs:36,meta:'agent-journal'},
+  {key:'cfa',name:'CFA coach',what:'Plans and checks your CFA study.',hrs:240,meta:'agent-cfa'},
+  {key:'journal',name:'Journal scout',what:'Looks for journal and writing opportunities.',hrs:840,meta:'agent-journal'},
   {key:'scribe',name:'Semester Scribe',what:'Turns lectures into notes and Revise items. Runs at 9:30 PM.',hrs:36,meta:'agent-scribe'}
 ];
 function agentRows(now){
   now=now||Date.now();
   return AGENTS.map(a=>{
     let at=0,ok=true,summary='',detail='';
-    if(a.key==='nightly'){const t=Math.max(0,...XS.props.map(p=>+p.at||0));at=t;summary=t?'Latest suggestions: '+XS.props.filter(p=>+p.at===t).reduce((n,p)=>n+(p.items||[]).length,0)+' item(s)':''}
+    if(a.key==='nightly'){const NR=XS.props.filter(p=>/^\d{4}-\d{2}-\d{2}/.test(p.id||''));const t=Math.max(0,...NR.map(p=>+p.at||0));at=t;summary=t?'Latest suggestions: '+NR.filter(p=>+p.at===t).reduce((n,p)=>n+(p.items||[]).length,0)+' item(s)':''}
     else if(a.key==='backup'){const m=LD.get('meta','backup');if(m){at=+m.at||0;summary=[m.file,m.records!=null?m.records+' records':''].filter(Boolean).join(' · ');detail=summary}}
     else if(a.key==='calendar'){const m=LD.get('meta','calendar');if(m){at=+m.at||0;summary='Feed published'}}
     else{const m=LD.get('meta',a.meta);if(m){at=+m.at||0;ok=m.ok!==false;summary=String(m.summary||'');detail=String(m.detail||'')}}
