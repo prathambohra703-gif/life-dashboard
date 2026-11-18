@@ -53,7 +53,8 @@
       Object.assign(DEFAULT_CFG.targets,ORIG.targets);
     }
   }
-  const setFor=d=>put(on(d),on(d)&&week(d)===MAINT);
+  const stay=d=>week(d)===MAINT||(week(d)>MAINT&&ovOf().after==='maint');   // after week 9 he can choose to stay at maintenance
+  const setFor=d=>put(on(d),on(d)&&stay(d));
   function withDate(d,fn){const p=cur;setFor(d);try{return fn()}finally{put(p.on,p.maint)}}
   function withMode(o,fn){const p=cur;put(!!o,false);try{return fn()}finally{put(p.on,p.maint)}}
 
@@ -77,7 +78,7 @@
   /* ---------- labels and text ---------- */
   function label(d,plan){
     const w=week(d);
-    return w===MAINT?'Maintenance week · '+plan.name:'Week '+w+' · '+plan.name;
+    return w===MAINT?'Maintenance week · '+plan.name:w>MAINT&&ovOf().after==='maint'?'Maintenance · '+plan.name:'Week '+w+' · '+plan.name;
   }
   function effort(w){
     if(w===MAINT)return 'Maintenance week: eat about 2,500 kcal, keep protein and training the same. Stop with 1–2 reps in reserve.';

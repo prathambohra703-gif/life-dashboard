@@ -187,7 +187,7 @@ async def c5(b):
     # ---------- settings menu in six groups; old buttons still work
     await p.click('[data-act=settings]');await p.wait_for_timeout(200)
     heads=await ev("[...document.querySelectorAll('#layer .xgrp .xgh')].map(h=>h.textContent)")
-    ok('settings: six group headings',heads==['Account','Reminders','Appearance','Data','Semester','Privacy'],heads)
+    ok('settings: seven group headings (Agents added in step 2)',heads==['Account','Reminders','Agents','Appearance','Data','Semester','Privacy'],heads)
     has=await ev("['[data-x=cloud]','[data-x=calfeed]','[data-x=rem]','[data-act=lookopen]','[data-act=hues]','[data-change=fx]','[data-act=data]','[data-x=install]','[data-x=shortcuts]','[data-x=sem]','[data-change=exammode]','[data-change=mhide]','[data-change=privacy]','[data-x=pinset]','[data-act=widgets]','[data-act=gotolife]'].filter(s=>!document.querySelector('#layer '+s))")
     ok('settings: every old control is still there, plus Shortcuts and Set a PIN',not has,has)
     sm=await ev(SMALL,'#layer');ok('settings: no control under 44 px at 390',not sm,sm)

@@ -19,7 +19,7 @@ function xWrap(v,html){
     state.bodyView=v;
     return '<div class="seg" role="group" aria-label="Body section">'+[['train','Train'],['fuel','Fuel']].map(([k,l])=>'<button data-act="tab" data-v="'+k+'" aria-pressed="'+(v===k)+'">'+l+'</button>').join('')+'</div>'+html;
   }
-  if(v==='today'){const p=propsCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
+  if(v==='today'){const p=propsCard()+cutCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
   return html;
 }
 
@@ -89,7 +89,7 @@ function applySemester(){
   MILESTONES.splice(0,MILESTONES.length,...(sm.miles||[]).map(m=>({...m})));
   LM.marks.f[1][3]=Object.values(COURSES).length?Object.values(COURSES):['General'];
 }
-const _render=render;render=function(){try{applySemester()}catch(e){console.error(e)}try{if(state.mm==='poker'&&examOn(todayStr()))state.mm='spend'}catch(e){}_render();try{remPublish()}catch(e){}try{calPublish()}catch(e){}try{allowSeed()}catch(e){}};
+const _render=render;render=function(){try{applySemester()}catch(e){console.error(e)}try{if(state.mm==='poker'&&examOn(todayStr()))state.mm='spend'}catch(e){}_render();try{remPublish()}catch(e){}try{calPublish()}catch(e){}try{allowSeed()}catch(e){}try{agentDot()}catch(e){}};
 const KINDS=['Exam','Test','Submission','Presentation','Interviews','Task'];
 function semSheet(){
   const sm=semNow(),cs=sm.courses||[],its=(sm.items||[]).slice().sort((a,b)=>(a.d||'9999')<(b.d||'9999')?-1:1);
@@ -137,21 +137,153 @@ cfaSystem=function(){
 };
 
 /* ---------- nightly review inbox: proposals wait here until approved ---------- */
-LD.opened.then(()=>LD.onCol('proposals',s=>{XS.props=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender()}));
+LD.opened.then(()=>{LD.onCol('proposals',s=>{XS.props=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();setTimeout(agentDot,0)});LD.onCol('meta',()=>setTimeout(agentDot,0))});
+function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case'})[it.kind]||'Suggestion'}
+function propText(it){return it.kind==='case'?(it.name||'')+(it.point?' — '+it.point:''):(it.text||it.title||it.cmd||it.t||it.name||'')}
 function propsCard(){
   const open=[];XS.props.forEach(p=>(p.items||[]).forEach((it,i)=>{if(!it.status)open.push({p,it,i})}));
   if(!open.length)return '';
-  return '<section class="card hero" style="margin-top:14px"><h2>Nightly review<small>'+open.length+' suggestion'+(open.length===1?'':'s')+' · nothing is applied until you approve</small></h2><div class="list">'+open.map(({p,it,i})=>'<div class="li"><div class="m"><b>'+esc(it.text||it.title||it.cmd||'')+'</b><span>'+esc(({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note'})[it.kind]||'Suggestion')+(it.why?' · '+esc(it.why):'')+'</span></div><button class="btn sm pri" data-x="propok" data-id="'+esc(p.id)+'" data-i="'+i+'">Approve</button><button class="btn sm ghost" data-x="propno" data-id="'+esc(p.id)+'" data-i="'+i+'">Dismiss</button></div>').join('')+'</div></section>';
+  const bulk=open.length>1?'<div class="pr-bulk"><button class="btn sm pri" data-x="propall">Approve all</button><button class="btn sm ghost" data-x="propnoall">Dismiss all</button></div>':'';
+  return '<section class="card hero" style="margin-top:14px" id="props"><h2>Nightly review<small>'+open.length+' suggestion'+(open.length===1?'':'s')+' · nothing is applied until you approve</small></h2>'+bulk+'<div class="list">'+open.map(({p,it,i})=>{const a='data-id="'+esc(p.id)+'" data-i="'+i+'"';return '<div class="li pr-li"><div class="m"><b>'+esc(propText(it))+'</b><span>'+esc(propLabel(it))+(it.why?' · '+esc(it.why):'')+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="propok" '+a+'>Approve</button><button class="btn sm" data-x="propedit" '+a+'>Edit</button><button class="btn sm ghost" data-x="propno" '+a+'>Dismiss</button></div></div>'}).join('')+'</div></section>';
 }
-function propSet(id,i,status){const p=XS.props.find(x=>x.id===id);if(!p)return;const items=p.items.map((it,k)=>k===i?{...it,status}:it);const {id:_,...doc}=p;LD.write('proposals',id,{...doc,items})}
+/* write status changes for several items of one proposal at once: patches = {index: patchObject | null (reset to open)} */
+function propPatch(id,patches){
+  const p=XS.props.find(x=>x.id===id);if(!p)return;
+  const items=p.items.map((it,k)=>{if(!(k in patches))return it;const pt=patches[k];if(pt===null){const c={...it};delete c.status;delete c.edited;return c}return {...it,...pt}});
+  const {id:_,...doc}=p;p.items=items;LD.write('proposals',id,{...doc,items});
+}
+function propSet(id,i,status){propPatch(id,{[i]:{status}})}
+function propCourse(v){
+  v=String(v==null?'':v).trim().toLowerCase();if(!v)return '';
+  const ids=Object.keys(COURSES);
+  return ids.find(k=>k.toLowerCase()===v)||ids.find(k=>String(COURSES[k]).toLowerCase()===v)||ids.find(k=>XSHORT[k]&&String(XSHORT[k]).toLowerCase()===v)||ids.find(k=>String(COURSES[k]).toLowerCase().includes(v)||(v.length>3&&v.includes(String(COURSES[k]).toLowerCase())))||'';
+}
+function validYmd(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s||''))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s}
+function reviseSave(c,fn){
+  const all=JSON.parse(JSON.stringify(C().revise||{})),cur=all[c]||{};
+  const r={topics:cur.topics||[],cases:cur.cases||[],notes:cur.notes||[]};fn(r);all[c]=r;saveCfg({revise:all});
+}
+/* apply one item. Returns {ok:true,undo:fn} or {ok:false,msg,edit:true?}. Never touches the proposal record. */
+function propDo(it){
+  const k=it.kind;
+  if(k==='todo'){
+    const ti=String(it.title||'').trim();if(!ti)return {msg:'That suggestion has no title'};
+    const id=uid();setTodo({id,title:ti,pri:['high','med','low'].includes(it.pri)?it.pri:'med',q:['q1','q2','q3','q4'].includes(it.q)?it.q:'q2',done:false});
+    return {ok:true,undo:()=>delTodo(id)};
+  }
+  if(k==='deadline'){
+    const ti=String(it.title||'').trim();if(!ti||!validYmd(it.date))return {msg:'That deadline needs a title and a date'};
+    const id='c'+uid(),c=propCourse(it.course)||Object.keys(COURSES)[0];
+    setAcad(id,{custom:true,c,t:ti,date:it.date,k:KINDS.includes(it.k)?it.k:'Task'});
+    return {ok:true,undo:()=>delAcad(id)};
+  }
+  if(k==='note'){
+    const tx=String(it.text||'').trim();if(!tx)return {msg:'That note is empty'};
+    const d=state.date,old=day(d).note||'';dbSetDay(d,{note:old?old+'\n'+tx:tx});
+    return {ok:true,undo:()=>dbSetDay(d,{note:old})};
+  }
+  if(k==='log'){
+    const lp=localParse(String(it.cmd||''));if(!lp)return {msg:'I could not read that entry. Log it by hand.'};
+    const es=lp.entries.map(e=>({...e,date:e.date||state.date}));es.forEach(e=>state.chat.pending.push(e));state.chat.open=true;renderDock();
+    return {ok:true,undo:()=>{state.chat.pending=state.chat.pending.filter(e=>!es.includes(e));renderDock()}};
+  }
+  if(k==='topic'||k==='case'){
+    const c=propCourse(it.course);
+    if(!c)return {msg:'I could not match that course. Pick it in the Edit sheet.',edit:true};
+    if(k==='topic'){
+      const t=String(it.t||it.title||'').trim().slice(0,160);if(!t)return {msg:'That topic has no title'};
+      const id=uid();reviseSave(c,r=>{r.topics.push({id,t,done:false,conf:0})});
+      return {ok:true,undo:()=>reviseSave(c,r=>{r.topics=r.topics.filter(x=>x.id!==id)})};
+    }
+    const n=String(it.name||'').trim().slice(0,160);if(!n)return {msg:'That case has no name'};
+    const id=uid(),want=String(it.topic||'').trim().toLowerCase(),tp=want?(((C().revise||{})[c]||{}).topics||[]).find(x=>String(x.t).toLowerCase()===want):null;
+    reviseSave(c,r=>{const o={id,name:n,point:String(it.point||'').slice(0,300)};if(tp)o.topicId=tp.id;r.cases.push(o)});
+    return {ok:true,undo:()=>reviseSave(c,r=>{r.cases=r.cases.filter(x=>x.id!==id)})};
+  }
+  return {msg:'Unknown suggestion type'};
+}
 function propApply(id,i){
+  const p=XS.props.find(x=>x.id===id),it=p&&p.items[i];if(!it||it.status)return;
+  const r=propDo(it);
+  if(!r.ok){if(r.edit){propEditSheet(id,i,r.msg);return}return toast(r.msg)}
+  propPatch(id,{[i]:{status:'approved'}});toast('Approved',{noUndo:true});
+}
+function propOpen(){const o=[];XS.props.forEach(p=>(p.items||[]).forEach((it,i)=>{if(!it.status)o.push({id:p.id,i,it})}));return o}
+function propGroup(list,fnPatch){const by={};list.forEach(x=>{(by[x.id]=by[x.id]||{})[x.i]=fnPatch(x)});Object.keys(by).forEach(id=>propPatch(id,by[id]))}
+function propAll(){
+  const open=propOpen(),done=[],undos=[];let bad=0;
+  open.forEach(x=>{const r=propDo(x.it);if(r.ok){done.push(x);undos.push(r.undo)}else bad++});
+  if(!done.length)return toast(bad?'Nothing could be approved. Open Edit on each one.':'Nothing to approve');
+  propGroup(done,()=>({status:'approved'}));
+  toast('Approved '+done.length+(bad?'. '+bad+' need a look.':''),{undo:()=>{undos.slice().reverse().forEach(f=>{try{f()}catch(e){}});propGroup(done,()=>null)}});
+}
+function propNoAll(){const open=propOpen();if(!open.length)return;propGroup(open,()=>({status:'dismissed'}));toast('Dismissed '+open.length,{undo:()=>propGroup(open,()=>null)})}
+function propEditSheet(id,i,msg){
   const p=XS.props.find(x=>x.id===id),it=p&&p.items[i];if(!it)return;
-  if(it.kind==='todo'){if(!String(it.title||'').trim())return toast('That suggestion has no title');setTodo({id:uid(),title:String(it.title).trim(),pri:['high','med','low'].includes(it.pri)?it.pri:'med',q:it.q||'q2',done:false})}
-  else if(it.kind==='deadline'){if(!/^\d{4}-\d{2}-\d{2}$/.test(it.date||'')||!it.title)return toast('That deadline needs a title and a date');setAcad('c'+uid(),{custom:true,c:COURSES[it.course]?it.course:Object.keys(COURSES)[0],t:String(it.title),date:it.date,k:it.k||'Task'})}
-  else if(it.kind==='note'){const d=state.date,old=day(d).note||'';dbSetDay(d,{note:old?old+'\n'+it.text:it.text})}
-  else if(it.kind==='log'){const lp=localParse(String(it.cmd||''));if(!lp)return toast('I could not read that entry. Log it by hand.');lp.entries.forEach(e=>{e.date=e.date||state.date;state.chat.pending.push(e)});state.chat.open=true;renderDock()}
+  const f=(l,n,v,ex)=>'<label class="fld"><span>'+l+'</span><input type="text" name="'+n+'" value="'+esc(v||'')+'" autocomplete="off"'+(ex||'')+'></label>';
+  const sel=(l,n,opts,cur)=>'<label class="fld"><span>'+l+'</span><select name="'+n+'">'+opts.map(([v,t])=>'<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></label>';
+  const cs=Object.keys(COURSES).map(k=>[k,COURSES[k]]),cm=propCourse(it.course);
+  let body='';
+  if(it.kind==='todo')body=f('Title','title',it.title)+sel('Priority','pri',[['high','High'],['med','Medium'],['low','Low']],['high','med','low'].includes(it.pri)?it.pri:'med')+sel('Box','q',QUAD.map(z=>[z[0],z[0].toUpperCase()+' · '+z[1]]),it.q||'q2');
+  else if(it.kind==='deadline')body=f('Title','title',it.title)+'<label class="fld"><span>Date</span><input type="date" name="date" value="'+esc(validYmd(it.date)?it.date:'')+'"></label>'+sel('Kind','k',KINDS.map(x=>[x,x]),KINDS.includes(it.k)?it.k:'Task')+sel('Course','course',cs,cm||(cs[0]||[''])[0]);
+  else if(it.kind==='log')body='<label class="fld"><span>Entry to log</span><textarea name="cmd" rows="3">'+esc(it.cmd||'')+'</textarea></label><p class="xnote">It goes to the quick-log box for you to confirm.</p>';
+  else if(it.kind==='note')body='<label class="fld"><span>Note</span><textarea name="text" rows="4">'+esc(it.text||'')+'</textarea></label>';
+  else if(it.kind==='topic')body=sel('Course','course',[['','Choose a course']].concat(cs),cm)+f('Topic','t',it.t||it.title);
+  else if(it.kind==='case')body=sel('Course','course',[['','Choose a course']].concat(cs),cm)+f('Case name','name',it.name)+f('Holding, one line','point',it.point)+f('Linked topic (optional)','topic',it.topic);
   else return toast('Unknown suggestion type');
-  propSet(id,i,'approved');toast('Approved',{noUndo:true});
+  sheet('<h2>Edit suggestion<small>'+esc(propLabel(it))+'</small></h2>'+(msg?'<p class="xnote" role="status">'+esc(msg)+'</p>':'')+'<form data-xform="propedit" class="stack"><input type="hidden" name="id" value="'+esc(id)+'"><input type="hidden" name="i" value="'+i+'">'+body+'<div class="row"><button class="btn pri" type="submit">Save and approve</button><button class="btn" type="button" data-act="sheetclose">Cancel</button></div></form>');
+}
+function propEditSave(fd){
+  const id=String(fd.get('id')),i=+fd.get('i'),p=XS.props.find(x=>x.id===id),it=p&&p.items[i];if(!it||it.status){closeSheet();return}
+  const ed={...it};['title','pri','q','date','k','course','cmd','text','t','name','point','topic'].forEach(n=>{if(fd.has(n))ed[n]=String(fd.get(n)).trim()});
+  const r=propDo(ed);
+  if(!r.ok){toast(r.msg);return}
+  propPatch(id,{[i]:{...ed,status:'approved',edited:true}});closeSheet();toast('Approved',{noUndo:true});
+}
+/* ---------- agent status ---------- */
+const AGENTS=[
+  {key:'nightly',name:'Nightly review',what:'Reads the day and leaves suggestions on Today. Runs at 12:30 AM.',hrs:36},
+  {key:'backup',name:'Daily backup',what:'Saves a copy of all your records. Runs about 4:30 AM.',hrs:36},
+  {key:'calendar',name:'Calendar feed',what:'Publishes your dates to the calendar link when they change.',hrs:0},
+  {key:'health',name:'Health check',what:'Checks sync, backups and the other agents.',hrs:36,meta:'agent-health'},
+  {key:'sunday',name:'Sunday review prep',what:'Prepares your weekly review.',hrs:240,meta:'agent-sunday'},
+  {key:'monthend',name:'Month-end report',what:'Writes the month-end summary.',hrs:840,meta:'agent-monthend'},
+  {key:'cfa',name:'CFA coach',what:'Plans and checks your CFA study.',hrs:36,meta:'agent-cfa'},
+  {key:'journal',name:'Journal scout',what:'Looks for journal and writing opportunities.',hrs:36,meta:'agent-journal'},
+  {key:'scribe',name:'Semester Scribe',what:'Turns lectures into notes and Revise items. Runs at 9:30 PM.',hrs:36,meta:'agent-scribe'}
+];
+function agentRows(now){
+  now=now||Date.now();
+  return AGENTS.map(a=>{
+    let at=0,ok=true,summary='',detail='';
+    if(a.key==='nightly'){const t=Math.max(0,...XS.props.map(p=>+p.at||0));at=t;summary=t?'Latest suggestions: '+XS.props.filter(p=>+p.at===t).reduce((n,p)=>n+(p.items||[]).length,0)+' item(s)':''}
+    else if(a.key==='backup'){const m=LD.get('meta','backup');if(m){at=+m.at||0;summary=[m.file,m.records!=null?m.records+' records':''].filter(Boolean).join(' · ');detail=summary}}
+    else if(a.key==='calendar'){const m=LD.get('meta','calendar');if(m){at=+m.at||0;summary='Feed published'}}
+    else{const m=LD.get('meta',a.meta);if(m){at=+m.at||0;ok=m.ok!==false;summary=String(m.summary||'');detail=String(m.detail||'')}}
+    let st='none';
+    if(at)st=ok&&(!a.hrs||now-at<=a.hrs*36e5)?'ok':'bad';
+    return {...a,at,ok,summary,detail,st};
+  });
+}
+function agoText(at,now){
+  now=now||Date.now();const m=Math.floor((now-at)/6e4);if(m<1)return 'just now';if(m<60)return m+' min ago';
+  const dk=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'}),tm=new Date(at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'});
+  if(dk(at)===dk(now))return Math.floor(m/60)+' h ago';
+  if(dk(at)===dk(now-864e5))return 'yesterday '+tm;
+  return new Date(at).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'Asia/Kolkata'})+', '+tm;
+}
+function agentProblem(){try{return agentRows().some(r=>r.st==='bad')}catch(e){return false}}
+function agentDot(){const b=xq('[data-act=settings]');if(!b)return;const on=agentProblem();b.classList.toggle('agdot',on);b.setAttribute('aria-label',on?'Menu and settings. An agent has a problem.':'Menu and settings')}
+function agentSheet(){
+  const now=Date.now(),open=XS.agentOpen||'';
+  sheet('<h2>Agent status<small>what ran, and whether it worked</small></h2><div class="list ag-list">'+agentRows(now).map(r=>{
+    const lab=({ok:'Worked',bad:'Problem',none:'Never run'})[r.st];
+    return '<div class="li ag-li" data-agent="'+r.key+'"><button class="ag-row" data-x="agentrow" data-k="'+r.key+'" aria-expanded="'+(open===r.key)+'"><span class="m"><b>'+esc(r.name)+'</b><span>'+esc(r.what)+'</span>'+(r.summary?'<span class="ag-sum">'+esc(r.summary)+'</span>':'')+'<span class="ag-when">'+(r.at?esc(agoText(r.at,now)):'No run recorded')+'</span></span><span class="ag-pill '+r.st+'">'+lab+'</span></button>'+(open===r.key?'<div class="ag-detail">'+esc(r.detail||(r.at?'No more detail was recorded.':'This agent has not written a status yet.'))+'</div>':'')+'</div>'}).join('')+'</div><div class="row"><button class="btn" data-act="sheetclose">Close</button></div>');
+}
+/* ---------- recomposition: what happens after programme week 9 ---------- */
+function cutCard(){
+  if(todayStr()<'2027-02-01'||(C().program||{}).after)return '';
+  return '<section class="card" id="cutcard" style="margin-top:14px"><h2>Recomposition: continue the cut?<small>The 8 weeks and the maintenance week are done</small></h2><p class="xnote" style="margin:0 0 var(--s3)">Until you choose, targets stay at 2,050 kcal.</p><div class="row wrap"><button class="btn pri" data-x="cutcont">Continue at 2,050 kcal</button><button class="btn" data-x="cutmaint">Stay at maintenance</button></div></section>';
 }
 
 /* ---------- career follow-ups and renewals: used by reminders and the Coming up card ---------- */
@@ -467,6 +599,12 @@ document.addEventListener('click',async ev=>{
   if(a==='signout'){LD.signOut();cloudSheet();return}
   if(a==='setuphide'){LD.kvSet('setupHide',1);render();return}
   if(a==='propok'){propApply(t.dataset.id,+t.dataset.i);return}
+  if(a==='propedit'){propEditSheet(t.dataset.id,+t.dataset.i);return}
+  if(a==='propall'){propAll();return}
+  if(a==='propnoall'){propNoAll();return}
+  if(a==='agents'){XS.agentOpen='';agentSheet();return}
+  if(a==='agentrow'){XS.agentOpen=XS.agentOpen===t.dataset.k?'':t.dataset.k;agentSheet();return}
+  if(a==='cutcont'||a==='cutmaint'){saveCfg({program:{...(C().program||{}),after:a==='cutcont'?'cut':'maint'}});toast(a==='cutcont'?'Staying at 2,050 kcal':'Targets set to maintenance, 2,500 kcal',{noUndo:true});return}
   if(a==='propno'){propSet(t.dataset.id,+t.dataset.i,'dismissed');return}
   if(a==='accent'){lookSave({accent:t.dataset.v});lookApply();appearanceSheet();return}
   if(a==='herodel'){LD.kvSet('hero:'+t.dataset.k,undefined);heroLoad();WALL.name='';wallApply();appearanceSheet();return}
@@ -493,6 +631,7 @@ document.addEventListener('submit',async ev=>{
     const b=xq('button[type=submit]',f);b.disabled=true;b.textContent='Connecting…';
     try{await LD.signIn(v('url'),v('key'),v('email'),String(fd.get('password')||''));cloudSheet();toast('Connected',{noUndo:true})}catch(e){cloudSheet('Could not connect: '+String(e.message||e))}
     return}
+  if(k==='propedit'){propEditSave(fd);return}
   if(k==='cfaset'){const d=v('date'),h=+v('hours');if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(h>=50&&h<=1000))return toast('Enter a valid date and an hours goal between 50 and 1000');saveCfg({cfaDate:d,cfaHours:h});toast('Saved',{noUndo:true});return}
   const sm=semNow();
   if(k==='semname'){if(v('name'))semSave({...sm,name:v('name')});return}
@@ -573,6 +712,7 @@ settingsSheet=function(){
    '<button class="btn" data-act="widgets">Open widget view</button><button class="btn" data-act="gotolife">Career, goals, net worth and more</button>'+
    g('Account','<button class="btn" data-x="cloud">Cloud sync</button><button class="btn" data-x="calfeed">Calendar feed</button>')+
    g('Reminders','<button class="btn" data-x="rem">Reminders</button>')+
+   g('Agents','<button class="btn" data-x="agents">Agent status'+(agentProblem()?' · a problem to look at':'')+'</button>')+
    g('Appearance','<button class="btn" data-act="lookopen">Appearance: scene, motion, Today cards</button><button class="btn" data-act="hues">Tab colours</button>'+ck('fx',cfg.fx!==false,'Celebrations and haptics'))+
    g('Data','<button class="btn" data-act="data">Data and backup</button><button class="btn" data-x="shortcuts">Shortcuts and Siri</button><button class="btn" data-x="install">Install on this device</button>')+
    g('Semester','<button class="btn" data-x="sem">Semester setup</button><label class="fld"><span>Exam mode</span><select data-change="exammode">'+[['auto','Automatic, near an exam'],['on','Always on'],['off','Off']].map(([k,l])=>'<option value="'+k+'"'+((cfg.examMode||'auto')===k?' selected':'')+'>'+l+'</option>').join('')+'</select></label>')+
