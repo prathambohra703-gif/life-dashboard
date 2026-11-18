@@ -316,7 +316,8 @@ const AGENTS=[
   {key:'monthend',name:'Month-end report',what:'Writes the month-end summary.',hrs:840,meta:'agent-monthend'},
   {key:'cfa',name:'CFA coach',what:'Plans and checks your CFA study.',hrs:240,meta:'agent-cfa'},
   {key:'journal',name:'Journal scout',what:'Looks for journal and writing opportunities.',hrs:840,meta:'agent-journal'},
-  {key:'scribe',name:'Semester Scribe',what:'Turns lectures into notes and Revise items. Runs at 9:30 PM.',hrs:36,meta:'agent-scribe'}
+  {key:'scribe',name:'Semester Scribe',what:'Turns lectures into notes and Revise items. Runs at 9:30 PM.',hrs:36,meta:'agent-scribe'},
+  {key:'outlook',name:'Outlook check',what:'Reads your university mail in Chrome on your Mac and suggests deadlines and tasks. Runs at 9:15 PM.',hrs:36,meta:'agent-outlook'}
 ];
 function agentRows(now){
   now=now||Date.now();
