@@ -19,7 +19,7 @@ function xWrap(v,html){
     state.bodyView=v;
     return '<div class="seg" role="group" aria-label="Body section">'+[['train','Train'],['fuel','Fuel']].map(([k,l])=>'<button data-act="tab" data-v="'+k+'" aria-pressed="'+(v===k)+'">'+l+'</button>').join('')+'</div>'+html;
   }
-  if(v==='today'){const p=propsCard()+cutCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
+  if(v==='today'){const p=wisprCard()+propsCard()+cutCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
   return html;
 }
 
@@ -138,12 +138,14 @@ cfaSystem=function(){
   return _cfaSystem()+extra;
 };
 
+/* a Wispr-logger record: auto at the top level, or on its items (the Drive inbox script passes only date and items) */
+function wlIsAuto(p){return !!p&&(p.auto===true||(Array.isArray(p.items)&&p.items.some(i=>i&&i.auto===true)))}
 /* ---------- nightly review inbox: proposals wait here until approved ---------- */
 LD.opened.then(()=>{LD.onCol('proposals',s=>{XS.props=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();setTimeout(agentDot,0)});LD.onCol('meta',()=>setTimeout(agentDot,0))});
 function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case',course:'Add a course'})[it.kind]||'Suggestion'}
 function propText(it){return it.kind==='case'?(it.name||'')+(it.point?' — '+it.point:''):(it.text||it.title||it.cmd||it.t||it.name||'')}
 function propsCard(){
-  const open=[];XS.props.forEach(p=>(p.items||[]).forEach((it,i)=>{if(!it.status)open.push({p,it,i})}));
+  const open=[];XS.props.forEach(p=>{if(wlIsAuto(p))return;(p.items||[]).forEach((it,i)=>{if(!it.status)open.push({p,it,i})})});
   if(!open.length)return '';
   const bulk=open.length>1?'<div class="pr-bulk"><button class="btn sm pri" data-x="propall">Approve all</button><button class="btn sm ghost" data-x="propnoall">Dismiss all</button></div>':'';
   return '<section class="card hero" style="margin-top:14px" id="props"><h2>Nightly review<small>'+open.length+' suggestion'+(open.length===1?'':'s')+' · nothing is applied until you approve</small></h2>'+bulk+'<div class="list">'+open.map(({p,it,i})=>{const a='data-id="'+esc(p.id)+'" data-i="'+i+'"';return '<div class="li pr-li"><div class="m"><b>'+esc(propText(it))+'</b><span>'+esc(propLabel(it))+(it.why?' · '+esc(it.why):'')+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="propok" '+a+'>Approve</button><button class="btn sm" data-x="propedit" '+a+'>Edit</button><button class="btn sm ghost" data-x="propno" '+a+'>Dismiss</button></div></div>'}).join('')+'</div></section>';
@@ -218,7 +220,7 @@ function propApply(id,i){
   if(!r.ok){if(r.edit){propEditSheet(id,i,r.msg);return}return toast(r.msg)}
   propPatch(id,{[i]:{status:'approved'}});toast('Approved',{noUndo:true});
 }
-function propOpen(){const o=[];XS.props.forEach(p=>(p.items||[]).forEach((it,i)=>{if(!it.status)o.push({id:p.id,i,it})}));return o}
+function propOpen(){const o=[];XS.props.forEach(p=>{if(wlIsAuto(p))return;(p.items||[]).forEach((it,i)=>{if(!it.status)o.push({id:p.id,i,it})})});return o}
 function propGroup(list,fnPatch){const by={};list.forEach(x=>{(by[x.id]=by[x.id]||{})[x.i]=fnPatch(x)});Object.keys(by).forEach(id=>propPatch(id,by[id]))}
 function propAll(){
   const open=propOpen(),done=[],undos=[];let bad=0;
@@ -293,7 +295,7 @@ function wizAll(){
 }
 /* ---------- agent status ---------- */
 const AGENTS=[
-  {key:'nightly',name:'Nightly review',what:'Reads the day and leaves suggestions on Today. Runs at 12:30 AM.',hrs:36},
+  {key:'nightly',name:'Wispr logger',what:'Reads your Wispr notes twice a day, saves the clear items and leaves questions on Today. Runs about 2 PM and 12:30 AM.',hrs:36},
   {key:'backup',name:'Daily backup',what:'Saves a copy of all your records. Runs about 4:30 AM.',hrs:36},
   {key:'calendar',name:'Calendar feed',what:'Publishes your dates to the calendar link when they change.',hrs:0},
   {key:'health',name:'Health check',what:'Checks sync, backups and the other agents.',hrs:36,meta:'agent-health'},
@@ -307,7 +309,10 @@ function agentRows(now){
   now=now||Date.now();
   return AGENTS.map(a=>{
     let at=0,ok=true,summary='',detail='';
-    if(a.key==='nightly'){const NR=XS.props.filter(p=>/^\d{4}-\d{2}-\d{2}/.test(p.id||''));const t=Math.max(0,...NR.map(p=>+p.at||0));at=t;summary=t?'Latest suggestions: '+NR.filter(p=>+p.at===t).reduce((n,p)=>n+(p.items||[]).length,0)+' item(s)':''}
+    if(a.key==='nightly'){const NR=XS.props.filter(p=>wlIsAuto(p)||/^\d{4}-\d{2}-\d{2}/.test(p.id||''));const t=Math.max(0,...NR.map(p=>+p.at||0));at=t;
+      if(t){const reg=wlReg();let sv=0,nd=0;NR.filter(p=>+p.at===t).forEach(p=>(p.items||[]).forEach((it,i)=>{
+        if(wlIsAuto(p)){const r=it&&reg[wlKey(wlSrc(p,it,i))];if(r&&!r.skipped)sv++;else if(!r)nd++}else if(!it.status)nd++}));
+        summary=sv+' saved, '+nd+' need you'}}
     else if(a.key==='backup'){const m=LD.get('meta','backup');if(m){at=+m.at||0;summary=[m.file,m.records!=null?m.records+' records':''].filter(Boolean).join(' · ');detail=summary}}
     else if(a.key==='calendar'){const m=LD.get('meta','calendar');if(m){at=+m.at||0;summary='Feed published'}}
     else{const m=LD.get('meta',a.meta);if(m){at=+m.at||0;ok=m.ok!==false;summary=String(m.summary||'');detail=String(m.detail||'')}}
@@ -687,6 +692,7 @@ document.addEventListener('submit',async ev=>{
     try{await LD.signIn(v('url'),v('key'),v('email'),String(fd.get('password')||''));cloudSheet();toast('Connected',{noUndo:true})}catch(e){cloudSheet('Could not connect: '+String(e.message||e))}
     return}
   if(k==='propedit'){propEditSave(fd);return}
+  if(k==='wedit'){wlEditSave(fd);return}
   if(k==='cfaset'){const d=v('date'),h=+v('hours');if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(h>=50&&h<=1000))return toast('Enter a valid date and an hours goal between 50 and 1000');saveCfg({cfaDate:d,cfaHours:h});toast('Saved',{noUndo:true});return}
   const sm=semNow();
   if(k==='semname'){if(v('name'))semSave({...sm,name:v('name')});return}
@@ -950,3 +956,346 @@ function allowSeed(){
   setTimeout(()=>{saveCfg({recurring:[...(C().recurring||[]),it]});runRecurring()},0);
 }
 LD.onStatus(()=>{try{allowSeed()}catch(e){}});
+
+/* ---------- Wispr logger: a cloud agent writes one proposals record per run with auto:true. Clear items are saved here
+   without a tap, each with Undo; unclear items wait as questions. Every item carries a src fingerprint, and the app applies
+   each src exactly once: a shared register (meta/wispr-applied) plus idempotent writes (ids derived from src). ---------- */
+const wlKey=s=>String(s).replace(/[^A-Za-z0-9_-]/g,'_').slice(0,100);
+function wlHash(s){let a=0x811c9dc5,b=0x9747b28c;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a^=c;a=Math.imul(a,16777619);b=Math.imul(b^c,0x5bd1e995);b^=b>>>13}return (a>>>0).toString(36)+(b>>>0).toString(36)}
+const wlId=s=>'w_'+wlHash(String(s));
+const wlReg=()=>LD.get('meta','wispr-applied')||{};
+function wlRegPut(patch){LD.write('meta','wispr-applied',{...wlReg(),...patch})}
+const wlUp=s=>{s=String(s==null?'':s).trim();return s.charAt(0).toUpperCase()+s.slice(1)};
+const wlNum=v=>{const x=typeof v==='number'?v:parseFloat(v);return isFinite(x)?x:NaN};
+const wlTime=v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v||''));
+const wlDate=(it,p)=>validYmd(it&&it.date)?it.date:(p&&validYmd(p.date)?p.date:'');
+const wlSrc=(p,it,i)=>String((it&&it.src)||(p.id+'#'+i));
+function wlAcct(v){
+  v=String(v==null?'':v).trim().toLowerCase();if(!v)return '';
+  const A=C().accounts;
+  const a=A.find(x=>x.id.toLowerCase()===v)||A.find(x=>String(x.name).toLowerCase()===v)||A.find(x=>String(x.name).toLowerCase().replace(/\s+bank$/,'')===v);
+  return a?a.id:'';
+}
+function wlDue(d){const n=diff(d,todayStr());return n>=0&&n<7?DOW[parse(d).getDay()]:parse(d).getDate()+' '+MON[parse(d).getMonth()]}
+function wlShares(arr){
+  const out=[];
+  (arr||[]).forEach(x=>{if(!(x&&x.person&&+x.amount>0))return;const ns=splitNames(x.person);if(!ns.length)return;const each=r2(+x.amount/ns.length);ns.forEach((n,i)=>out.push({person:n,amount:i===0?r2(+x.amount-each*(ns.length-1)):each}))});
+  return out;
+}
+/* exercise names: today's plan first, then the library, then every day of the plan */
+const WL_STOP=new Set(['or','and','the','a','with','on']);
+const wlTok=s=>String(s).toLowerCase().replace(/dumbbells?/g,'db').replace(/barbells?/g,'bb').replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(t=>t&&!WL_STOP.has(t)).map(t=>t.replace(/s$/,''));
+function wlExLists(date){
+  let pl=null;const key=DOW[parse(date).getDay()];
+  try{pl=(window.PROGRAM&&PROGRAM.withDate)?PROGRAM.withDate(date,()=>PLAN[key]):PLAN[key]}catch(e){pl=PLAN[key]}
+  const names=o=>((o&&o.ex)||[]).map(e=>e.n);
+  const all=[];try{Object.values(PLAN).forEach(o=>all.push(...names(o)));if(window.PROGRAM&&PROGRAM.plan)Object.values(PROGRAM.plan).forEach(o=>all.push(...names(o)))}catch(e){}
+  return [names(pl),CUE_LIST.map(r=>r[0]),[...new Set(all)]];
+}
+function wlMatchEx(q,date){
+  const qt=wlTok(q);if(!qt.length)return {name:''};
+  const lists=wlExLists(date);
+  for(const L of lists){
+    let best=null,bs=0;
+    L.forEach(n=>{const ct=wlTok(n);let s=0;
+      if(qt.every(t=>ct.includes(t)))s=qt.length/ct.length;
+      else if(ct.length>=2&&ct.every(t=>qt.includes(t)))s=.5*ct.length/qt.length;
+      if(s>bs){bs=s;best=n}});
+    if(best)return {name:best};
+  }
+  return {name:'',today:lists[0]};
+}
+const wlSetsOk=a=>Array.isArray(a)&&a.length&&a.every(s=>s&&wlNum(s.w)>=0&&wlNum(s.r)>=1&&wlNum(s.r)<=200);
+/* the units a plan touches, kept so Undo restores exactly what was changed */
+const wlCx=()=>({refs:[],dprev:[],sets:[],cprev:null});
+function wlPrevOf(cur,patch){const o={};for(const k in patch){const v=patch[k];if(v&&typeof v==='object'&&!Array.isArray(v))o[k]=wlPrevOf((cur&&cur[k])||{},v);else o[k]=cur&&cur[k]!==undefined?cur[k]:null}return o}
+function wlDay(cx,d,patch){cx.dprev.push({d,p:wlPrevOf(day(d),patch)});dbSetDay(d,patch)}
+function wlInc(cx,sk,d,patch,once){
+  if((day(d).wx||{})[sk])return;
+  const full={...patch,wx:{[sk]:1}};wlDay(cx,d,full);
+}
+function wlEnt(cx,id,doc){cx.refs.push({col:'entries',id});if(state.entries.some(e=>e.id===id))return;state.entries.push({id,...doc,ts:Date.now()});wSet('entries',id)}
+function wlListPut(cx,l,row){
+  cx.refs.push({col:'L_'+l,id:row.id});
+  const list=LL(l).slice(),i=list.findIndex(x=>x.id===row.id);
+  if(i>=0)list[i]=row;else list.push(row);LSAVE(l,list);
+}
+function wlHabitKeys(d){try{return habits(d).items.filter(i=>!i.type).map(i=>i.k)}catch(e){return ['mobility','creatine','gym','alcohol','clean']}}
+/* validate an item and return {err} | {ask:{question,options}} | {do(cx)} */
+function wlPlan(it,src,date){
+  const k=it.kind,sk=wlKey(src),id=wlId(src),cfg=C(),E=m=>({err:m}),D=fn=>({do:fn});
+  const nd=()=>{if(!validYmd(date))return 'which day is this for?';const g=diff(date,todayStr());if(g>1)return 'that date is in the future';if(g<-400)return 'that date is too old';return ''};
+  const dset=(field,v,okv,msg)=>{const e=nd();if(e)return E(e);if(!okv(v))return E(msg);return D(cx=>wlDay(cx,date,{[field]:v}))};
+  const dinc=(field,v,msg)=>{const e=nd();if(e)return E(e);if(!(v>=1&&v<=1440))return E(msg);return D(cx=>wlInc(cx,sk,date,{[field]:(+day(date)[field]||0)+v}))};
+  if(k==='water'){const e=nd(),ml=wlNum(it.ml);if(e)return E(e);if(!(ml>=20&&ml<=6000))return E('how many ml?');return D(cx=>wlEnt(cx,id,{type:'water',ml:Math.round(ml),date}))}
+  if(k==='meal'){
+    const e=nd(),nm=String(it.name||'').trim().slice(0,120),kc=wlNum(it.kcal);if(e)return E(e);
+    if(!nm)return E('what was the meal?');if(!(kc>=0&&kc<=6000))return E('how many kcal?');
+    const doc={type:'meal',name:nm,kcal:Math.round(kc),p:wlNum(it.p)>=0?wlNum(it.p):0,date};
+    if(wlNum(it.c)>=0)doc.c=wlNum(it.c);if(wlNum(it.f)>=0)doc.f=wlNum(it.f);if(it.portion)doc.portion=String(it.portion).slice(0,80);
+    return D(cx=>wlEnt(cx,id,doc));
+  }
+  if(k==='sets'){
+    const e=nd(),q=String(it.exercise||'').trim();if(e)return E(e);
+    if(!q)return E('which exercise?');if(!wlSetsOk(it.sets))return E('what were the sets (weight and reps)?');
+    const sets=it.sets.map(s=>({w:wlNum(s.w),r:Math.round(wlNum(s.r))}));
+    let name=q;
+    if(!it.exact){
+      const m=wlMatchEx(q,date);
+      if(!m.name){
+        const opts=(m.today||[]).slice(0,4).map(n=>({label:n,item:{kind:'sets',exercise:n,sets:it.sets,date}}));
+        opts.push({label:'New: '+q,item:{kind:'sets',exercise:q,sets:it.sets,date,exact:true}});opts.push({label:'Skip',item:null});
+        return {ask:{question:'Which exercise is "'+q+'"?',options:opts}};
+      }
+      name=m.name;
+    }
+    const lid=slug(name);if(!lid)return E('which exercise?');
+    return D(cx=>{
+      const arr=((day(date).lifts||{})[lid]||[]).slice();
+      if(!arr.some(x=>x&&x.src===sk))dbSetDay(date,{lifts:{[lid]:arr.concat(sets.map(s=>({w:s.w,r:s.r,src:sk})))}});
+      cx.sets.push({d:date,slug:lid,s:sk});
+    });
+  }
+  if(k==='cardio')return dinc('cardioMin',wlNum(it.min),'how many minutes of cardio?');
+  if(k==='cfa')return dinc('cfaMin',wlNum(it.min),'how many minutes of CFA?');
+  if(k==='study'){
+    const e=nd(),m=wlNum(it.min);if(e)return E(e);if(!(m>=1&&m<=1440))return E('how many minutes of study?');
+    let c='';if(String(it.course||'').trim()){c=propCourse(it.course);if(!c)return E('which course is "'+it.course+'"?')}
+    return D(cx=>{const dd=day(date),patch={studyMin:(+dd.studyMin||0)+m};if(c)patch.courseMin={[c]:(+(dd.courseMin||{})[c]||0)+m};wlInc(cx,sk,date,patch)});
+  }
+  if(k==='habit'){
+    const e=nd(),key=String(it.key||'').trim().toLowerCase();if(e)return E(e);
+    if(!wlHabitKeys(date).includes(key))return E('which habit is "'+(it.key||'')+'"?');
+    return D(cx=>wlDay(cx,date,{habits:{[key]:it.done!==false&&it.done!=='false'}}));
+  }
+  if(k==='weight')return dset('weight',wlNum(it.kg),v=>v>=30&&v<=250,'what was the weight in kg?');
+  if(k==='steps')return dset('steps',Math.round(wlNum(it.n)),v=>v>=0&&v<=100000,'how many steps?');
+  if(k==='waist')return dset('waist',wlNum(it.cm),v=>v>=40&&v<=200,'what was the waist in cm?');
+  if(k==='wake'||k==='bed')return dset(k,String(it.time||''),wlTime,'what time (HH:MM)?');
+  if(k==='mood'||k==='sleepQ')return dset(k,Math.round(wlNum(it.v)),v=>v>=1&&v<=5,'what rating, 1 to 5?');
+  if(k==='expense'||k==='income'){
+    const e=nd(),amt=wlNum(it.amount);if(e)return E(e);
+    if(!(amt>0&&amt<1e8))return E('what amount?');
+    const acct=wlAcct(it.account),paidBy=k==='expense'?String(it.paidBy||'').trim():'';
+    if(!paidBy&&!acct)return E(String(it.account||'').trim()?'which account? "'+it.account+'" is not one of yours':'which account?');
+    const note=String(it.note||'').trim().slice(0,160);
+    if(k==='income')return D(cx=>wlEnt(cx,id,{type:'txn',kind:'income',amount:amt,category:'Income',account:acct,src:'Other',note,date}));
+    const cats=cfg.categories,cat=cats.find(c=>String(c).toLowerCase()===String(it.category||'').toLowerCase())||guessCat(note,cats);
+    if(paidBy){
+      const mine=wlNum(it.mine)>=0?Math.min(amt,r2(wlNum(it.mine))):amt;
+      return D(cx=>{wlEnt(cx,id,{type:'txn',kind:'expense',amount:amt,mine,payer:paidBy,account:'',category:cat,note,date,split:true});if(mine>0)wlEnt(cx,wlId(src+'#c0'),{type:'debt',person:paidBy,amount:mine,note,date,src:id})});
+    }
+    const sh=wlShares(it.split),owed=sum(sh,x=>x.amount);
+    if(owed>amt+0.005)return E('the shares add up to more than the bill');
+    return D(cx=>{
+      wlEnt(cx,id,{type:'txn',kind:'expense',amount:amt,category:cat,account:acct,note,date,...(sh.length?{mine:r2(amt-owed),split:true}:{})});
+      sh.forEach((x,i)=>wlEnt(cx,wlId(src+'#c'+i),{type:'owe',person:x.person,amount:x.amount,note,date,src:id}));
+    });
+  }
+  if(k==='repay'||k==='paid'){
+    const e=nd(),amt=wlNum(it.amount),pn=String(it.person||'').trim();if(e)return E(e);
+    if(!pn)return E('who?');if(!(amt>0&&amt<1e8))return E('what amount?');
+    const acct=wlAcct(it.account);if(String(it.account||'').trim()&&!acct)return E('which account? "'+it.account+'" is not one of yours');
+    return D(cx=>wlEnt(cx,id,{type:k,person:pn,amount:amt,account:acct,date}));
+  }
+  if(k==='poker'){
+    const e=nd(),bi=wlNum(it.buyin),co=wlNum(it.cashout);if(e)return E(e);
+    if(!(bi>=0)||!(co>=0))return E('what were the buy-in and cash-out?');
+    return D(cx=>wlEnt(cx,id,{type:'poker',date,buyin:bi,cashout:co,note:String(it.note||'').slice(0,160),hours:wlNum(it.hours)>0?wlNum(it.hours):null}));
+  }
+  if(k==='todo'){
+    const ti=String(it.title||'').trim().slice(0,200);if(!ti)return E('what is the task?');
+    const q=['q1','q2','q3','q4'].includes(it.q)?it.q:'q2',pri=['high','med','low'].includes(it.pri)?it.pri:'med',due=validYmd(it.due)?it.due:'';
+    return D(cx=>{cx.refs.push({col:'todos',id});if(state.todos.some(t=>t.id===id))return;setTodo({id,title:ti,pri,q,done:false,...(due?{due}:{})})});
+  }
+  if(k==='deadline'){
+    const ti=String(it.title||'').trim();if(!ti)return E('what is the deadline called?');if(!validYmd(it.date))return E('what is the date?');
+    const c=propCourse(it.course)||Object.keys(COURSES)[0];
+    return D(cx=>{cx.refs.push({col:'academics',id});if(state.acad[id])return;setAcad(id,{custom:true,c,t:ti,date:it.date,k:KINDS.includes(it.k)?it.k:'Task'})});
+  }
+  if(k==='note'){
+    const e=nd(),tx=String(it.text||'').trim();if(e)return E(e);if(!tx)return E('the note is empty');
+    return D(cx=>{const old=day(date).note||'';wlInc(cx,sk,date,{note:old?old+'\n'+tx:tx})});
+  }
+  if(k==='contact'){
+    const e=nd(),nm=String(it.name||'').trim();if(e)return E(e);if(!nm)return E('who?');
+    const list=LL('contacts'),low=nm.toLowerCase();
+    if(it.add)return D(cx=>wlListPut(cx,'contacts',{id,name:nm,firm:'',last:date,note:String(it.note||'')}));
+    let ex=list.find(x=>String(x.name||'').trim().toLowerCase()===low);
+    if(!ex){const part=list.filter(x=>{const n=String(x.name||'').trim().toLowerCase();return n.length>=3&&(n.includes(low)||low.includes(n))});if(part.length===1)ex=part[0]}
+    if(!ex)return {ask:{question:'Add '+nm+' as a contact?',options:[{label:'Add',item:{kind:'contact',name:nm,note:it.note,date,add:true}},{label:'Skip',item:null}]}};
+    return D(cx=>{cx.cprev={id:ex.id,last:ex.last||''};if(!ex.last||ex.last<date)LSAVE('contacts',LL('contacts').map(x=>x.id===ex.id?{...x,last:date}:x))});
+  }
+  if(k==='intern'){
+    const e=nd(),w=String(it.work||'').trim();if(e)return E(e);if(!w)return E('what did you do?');
+    return D(cx=>wlListPut(cx,'intern',{id,date,firm:String(it.firm||'').trim()||'Other',matter:String(it.matter||'').trim(),work:w,learned:String(it.learned||'').trim(),with:String(it.with||'').trim(),skill:String(it.skill||'').trim()||'Other'}));
+  }
+  return E('unknown item type "'+(k||'')+'"');
+}
+function wlApplyOne(it,src,date){
+  if(!it||typeof it!=='object')return {err:'empty item'};
+  const pl=wlPlan(it,src,date);if(!pl.do)return pl;
+  const cx=wlCx();pl.do(cx);
+  return {ok:true,rec:{at:Date.now(),d:date,it,refs:cx.refs,dprev:cx.dprev,sets:cx.sets,cprev:cx.cprev}};
+}
+function wlReady(){
+  if(!window.LD||!LD.ready||!state.db)return false;
+  if(!['entries','days','config','todos','academics'].every(n=>state.seen[n]))return false;
+  const st=LD.status();return st.mode==='local'||st.last>0;
+}
+const wlAuto=()=>XS.props.filter(p=>wlIsAuto(p));
+function wlRun(){
+  if(XS.wlBusy||!wlAuto().length||!wlReady())return;XS.wlBusy=true;
+  try{wlRunNow()}finally{XS.wlBusy=false}
+}
+function wlRunNow(){
+  const reg=wlReg(),patch={};let n=0;
+  wlAuto().forEach(p=>(p.items||[]).forEach((it,i)=>{
+    if(!it||it.kind==='ask')return;
+    const src=wlSrc(p,it,i),k=wlKey(src);if(reg[k]||patch[k])return;
+    const r=wlApplyOne(it,src,wlDate(it,p));if(r.ok){patch[k]=r.rec;n++}
+  }));
+  if(n){wlRegPut(patch);scheduleRender()}
+}
+setInterval(()=>{try{wlRun()}catch(e){console.error(e)}},3000);
+LD.opened.then(()=>{LD.onCol('proposals',()=>setTimeout(()=>{try{wlRun()}catch(e){console.error(e)}},50));LD.onCol('meta',()=>setTimeout(()=>{try{wlRun();scheduleRender()}catch(e){console.error(e)}},50));LD.onStatus(()=>{try{wlRun()}catch(e){}})});
+const wlRecent=p=>{const t=+p.at||Date.parse((p.date||'')+'T12:00:00+05:30')||Date.now();return Date.now()-t<48*36e5};
+/* what still waits on him */
+function wlQuestions(){
+  const out=[],reg=wlReg(),seen=new Set();
+  wlAuto().forEach(p=>{if(!wlRecent(p))return;(p.items||[]).forEach((it,i)=>{
+    if(!it)return;const src=wlSrc(p,it,i),k=wlKey(src);if(reg[k]||seen.has(k))return;seen.add(k);
+    const date=wlDate(it,p);
+    if(it.kind==='ask'){out.push({k,src,date,it,ask:{question:String(it.question||'Which one?'),options:Array.isArray(it.options)?it.options:[]}});return}
+    const pl=wlPlan(it,src,date);
+    if(pl.err)out.push({k,src,date,it,bad:pl.err});else if(pl.ask)out.push({k,src,date,it,ask:pl.ask});
+  })});
+  return out;
+}
+function wlSaved(){
+  const reg=wlReg(),now=Date.now();
+  return Object.keys(reg).map(k=>({k,rec:reg[k]})).filter(x=>x.rec&&x.rec.it&&!x.rec.undone&&!x.rec.skipped&&now-(+x.rec.at||0)<48*36e5).sort((a,b)=>(+a.rec.at||0)-(+b.rec.at||0));
+}
+function wlSetsText(a){
+  const g=[];(a||[]).forEach(s=>{const w=wlNum(s.w),l=g[g.length-1];if(l&&l.w===w)l.r.push(s.r);else g.push({w,r:[s.r]})});
+  return g.map(x=>(x.w>0?x.w+' kg × ':'')+x.r.join(', ')).join(', ');
+}
+function wlLabel(it){
+  const k=it.kind,n=v=>wlNum(v);
+  if(k==='water')return 'Water '+n(it.ml)+' ml';
+  if(k==='meal')return wlUp(it.name)+' · '+Math.round(n(it.kcal)||0)+' kcal';
+  if(k==='sets')return wlUp(it.exercise)+' '+wlSetsText(it.sets);
+  if(k==='cardio')return 'Cardio '+n(it.min)+' min';
+  if(k==='habit')return wlUp(it.key)+(it.done===false||it.done==='false'?' not done':' done');
+  if(k==='weight')return 'Weight '+n(it.kg)+' kg';
+  if(k==='steps')return 'Steps '+(n(it.n)||0).toLocaleString('en-IN');
+  if(k==='waist')return 'Waist '+n(it.cm)+' cm';
+  if(k==='wake')return 'Woke at '+it.time;
+  if(k==='bed')return 'In bed at '+it.time;
+  if(k==='mood')return 'Mood '+n(it.v)+' of 5';
+  if(k==='sleepQ')return 'Sleep quality '+n(it.v)+' of 5';
+  if(k==='study')return 'Study '+n(it.min)+' min'+(it.course?' · '+it.course:'');
+  if(k==='cfa')return 'CFA '+n(it.min)+' min';
+  if(k==='expense'){
+    const amt=n(it.amount)||0,sh=wlShares(it.split);let s=wlUp(it.note)||'Expense';s+=' '+inr(amt);
+    if(it.paidBy)return s+', paid by '+wlUp(it.paidBy)+', you owe '+inr(wlNum(it.mine)>=0?wlNum(it.mine):amt);
+    if(sh.length){
+      if(sh.every(x=>x.amount===sh[0].amount))s+=', '+sh.map(x=>x.person).join(' and ')+(sh.length>1?' owe ':' owes ')+inr(sh[0].amount)+(sh.length>1?' each':'');
+      else s+=', '+sh.map(x=>x.person+' owes '+inr(x.amount)).join(', ');
+    }
+    return s;
+  }
+  if(k==='income')return 'Income '+inr(n(it.amount)||0)+(it.note?' · '+it.note:'');
+  if(k==='repay')return wlUp(it.person)+' paid you '+inr(n(it.amount)||0);
+  if(k==='paid')return 'You paid '+wlUp(it.person)+' '+inr(n(it.amount)||0);
+  if(k==='poker')return 'Poker · in '+inr(n(it.buyin)||0)+', out '+inr(n(it.cashout)||0);
+  if(k==='todo')return 'Todo: '+wlUp(it.title)+(validYmd(it.due)?', due '+wlDue(it.due):'');
+  if(k==='deadline')return 'Deadline: '+wlUp(it.title)+(validYmd(it.date)?', '+dlabel(it.date):'');
+  if(k==='note')return 'Note: '+String(it.text||'').slice(0,60);
+  if(k==='contact')return it.add?'Added contact '+it.name:(it.note?wlUp(it.note):'Spoke to')+' '+it.name;
+  if(k==='intern')return 'Intern log: '+(it.matter||it.work);
+  return String(it.kind||'Item');
+}
+const WL_KIND={water:'Water',meal:'Meal',sets:'Lift',cardio:'Cardio',habit:'Habit',weight:'Weight',steps:'Steps',waist:'Waist',wake:'Sleep',bed:'Sleep',mood:'Mood',sleepQ:'Sleep',study:'Study',cfa:'CFA',expense:'Spending',income:'Income',repay:'People',paid:'People',poker:'Poker',todo:'Task',deadline:'Deadline',note:'Note',contact:'Career',intern:'Career'};
+function wisprCard(){
+  const sv=wlSaved(),qs=wlQuestions();
+  if(!sv.length&&!qs.length)return '';
+  const t=todayStr(),hide=!!XS.wHide;
+  const head='<h2>Added from Wispr<small>'+sv.length+' saved'+(qs.length?' · '+qs.length+' need you':'')+'</small></h2>';
+  const tog='<button class="btn sm ghost wi-tog" data-x="wtog" aria-expanded="'+!hide+'">'+(hide?'Show':'Hide')+'</button>';
+  let body='';
+  if(!hide){
+    if(sv.length){
+      body+='<div class="lbl wi-lbl">Saved</div><div class="list">'+sv.slice(0,40).map(({k,rec})=>'<div class="li wi-li"><div class="m"><b>'+esc(wlLabel(rec.it))+'</b>'+(rec.d&&rec.d!==t?'<span>'+esc((WL_KIND[rec.it.kind]||'')+' · '+dlabel(rec.d))+'</span>':'')+'</div><button class="btn sm ghost" data-x="wundo" data-k="'+esc(k)+'" aria-label="Undo '+esc(wlLabel(rec.it))+'">Undo</button></div>').join('')+'</div>';
+      if(sv.length>1)body+='<div class="pr-bulk"><button class="btn sm" data-x="wundoall">Undo all</button></div>';
+    }
+    if(qs.length){
+      body+='<div class="lbl wi-lbl">Needs you</div><div class="list">'+qs.map(q=>{
+        if(q.bad)return '<div class="li pr-li wi-q"><div class="m"><b>Couldn’t save: ‘'+esc(wlLabel(q.it))+'’</b><span>'+esc(q.bad)+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="wedit" data-k="'+esc(q.k)+'">Edit</button><button class="btn sm ghost" data-x="wskip" data-k="'+esc(q.k)+'">Dismiss</button></div></div>';
+        return '<div class="li pr-li wi-q"><div class="m"><b>'+esc(q.ask.question)+'</b></div><div class="pr-acts">'+q.ask.options.map((o,j)=>'<button class="btn sm'+(o&&o.item?'':' ghost')+'" data-x="wopt" data-k="'+esc(q.k)+'" data-o="'+j+'">'+esc(o&&o.label||'Option')+'</button>').join('')+'</div></div>';
+      }).join('')+'</div>';
+    }
+  }
+  return '<section class="card hero wi" style="margin-top:14px" id="wispr"><div class="wi-head">'+head+tog+'</div>'+body+'</section>';
+}
+function wlUndoRec(k,rec){
+  (rec.refs||[]).forEach(r=>{
+    if(r.col==='entries'){if(state.entries.some(e=>e.id===r.id))delEntry(r.id);else wDel('entries',r.id)}
+    else if(r.col==='todos')delTodo(r.id);
+    else if(r.col==='academics')delAcad(r.id);
+    else if(/^L_/.test(r.col)){const l=r.col.slice(2);LSAVE(l,LL(l).filter(x=>x.id!==r.id))}
+  });
+  (rec.sets||[]).forEach(s=>{const arr=((day(s.d).lifts||{})[s.slug]||[]).filter(x=>!(x&&x.src===s.s));dbSetDay(s.d,{lifts:{[s.slug]:arr}})});
+  (rec.dprev||[]).slice().reverse().forEach(x=>dbSetDay(x.d,x.p));
+  if(rec.cprev)LSAVE('contacts',LL('contacts').map(x=>x.id===rec.cprev.id?{...x,last:rec.cprev.last}:x));
+}
+function wlUndo(keys){
+  const reg=wlReg(),patch={};let n=0;
+  keys.forEach(k=>{const rec=reg[k];if(!rec||rec.undone)return;try{wlUndoRec(k,rec)}catch(e){console.error(e)}patch[k]={...rec,undone:true,uat:Date.now()};n++});
+  if(n)wlRegPut(patch);scheduleRender();return n;
+}
+const WL_F={water:[['ml','Millilitres','n']],meal:[['name','Name','t'],['kcal','kcal','n'],['p','Protein g','n'],['c','Carbs g','n'],['f','Fat g','n']],sets:[['exercise','Exercise','t']],cardio:[['min','Minutes','n']],habit:[['key','Habit','h']],weight:[['kg','kg','n']],steps:[['n','Steps','n']],waist:[['cm','cm','n']],wake:[['time','Time, HH:MM','t']],bed:[['time','Time, HH:MM','t']],mood:[['v','1 to 5','n']],sleepQ:[['v','1 to 5','n']],study:[['min','Minutes','n'],['course','Course','k']],cfa:[['min','Minutes','n']],expense:[['amount','Amount','n'],['account','Paid from','a'],['category','Category','c'],['note','What for','t']],income:[['amount','Amount','n'],['account','Into','a'],['note','Note','t']],repay:[['person','Who paid you','t'],['amount','Amount','n'],['account','Landed in','a']],paid:[['person','Who you paid','t'],['amount','Amount','n'],['account','Paid from','a']],poker:[['buyin','Bought in','n'],['cashout','Cashed out','n'],['hours','Hours','n'],['note','Note','t']],todo:[['title','Title','t'],['due','Due','d']],deadline:[['title','Title','t'],['date','Date','d'],['course','Course','k']],note:[['text','Note','t']],contact:[['name','Name','t'],['note','Note','t']],intern:[['matter','Matter','t'],['work','What you did','t'],['firm','Firm','t']]};
+function wlEditSheet(k,msg){
+  const q=wlQuestions().find(x=>x.k===k);if(!q||!q.bad)return;
+  const it=(XS.wEd&&XS.wEd[k])||q.it,cfg=C(),fl=WL_F[it.kind];if(!fl)return toast('That item cannot be edited here');
+  const sel=(n,l,opts,cur)=>'<label class="fld"><span>'+l+'</span><select name="'+n+'">'+opts.map(([v,t])=>'<option value="'+esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></label>';
+  const f=([n,l,ty])=>{
+    const v=it[n]==null?'':it[n];
+    if(ty==='a')return sel(n,l,[['','Choose an account']].concat(cfg.accounts.map(a=>[a.id,a.name])),wlAcct(v)||'');
+    if(ty==='c')return sel(n,l,cfg.categories.map(c=>[c,c]),cfg.categories.includes(v)?v:'');
+    if(ty==='k')return sel(n,l,[['','No course']].concat(Object.keys(COURSES).map(c=>[c,COURSES[c]])),propCourse(v)||'');
+    if(ty==='h')return sel(n,l,wlHabitKeys(q.date||todayStr()).map(x=>[x,wlUp(x)]),String(v).toLowerCase());
+    return '<label class="fld"><span>'+l+'</span><input type="'+(ty==='n'?'number':ty==='d'?'date':'text')+'" name="'+n+'" value="'+esc(v)+'"'+(ty==='n'?' step="any" inputmode="decimal"':'')+' autocomplete="off"></label>';
+  };
+  const hasDay=!['todo','deadline'].includes(it.kind);
+  sheet('<h2>Edit<small>'+esc(WL_KIND[it.kind]||'Item')+'</small></h2><p class="xnote" role="status">'+esc(msg||('Couldn’t save: '+q.bad))+'</p><form data-xform="wedit" class="stack"><input type="hidden" name="k" value="'+esc(k)+'">'+WL_F[it.kind].map(f).join('')+(hasDay?'<label class="fld"><span>Day</span><input type="date" name="date" value="'+esc(validYmd(it.date)?it.date:(q.date||''))+'"></label>':'')+'<div class="row"><button class="btn pri" type="submit">Save</button><button class="btn" type="button" data-act="sheetclose">Cancel</button></div></form>');
+}
+function wlEditSave(fd){
+  const k=String(fd.get('k')),q=wlQuestions().find(x=>x.k===k);if(!q){closeSheet();return}
+  const ed={...q.it};
+  (WL_F[ed.kind]||[]).forEach(([n,l,ty])=>{if(!fd.has(n))return;const v=String(fd.get(n)).trim();ed[n]=ty==='n'?(v===''?'':parseFloat(v)):v});
+  if(fd.has('date')&&String(fd.get('date')))ed.date=String(fd.get('date'));
+  const date=ed.kind==='deadline'||ed.kind==='todo'?q.date:wlDate(ed,{date:q.date});
+  const r=wlApplyOne(ed,q.src,date);
+  if(!r.ok){(XS.wEd=XS.wEd||{})[k]=ed;wlEditSheet(k,r.err?'Still can’t save: '+r.err:'That needs an answer first');return}
+  if(XS.wEd)delete XS.wEd[k];
+  wlRegPut({[wlKey(q.src)]:{...r.rec,edited:true}});closeSheet();scheduleRender();toast('Saved',{noUndo:true});
+}
+function wlOption(k,j){
+  const q=wlQuestions().find(x=>x.k===k);if(!q||!q.ask)return;
+  const o=q.ask.options[j];if(!o)return;
+  const key=wlKey(q.src);
+  if(!o.item){wlRegPut({[key]:{at:Date.now(),skipped:true,chosen:o.label||''}});scheduleRender();return}
+  const r=wlApplyOne(o.item,q.src,wlDate(o.item,{date:q.date}));
+  if(!r.ok){toast(r.err?'Couldn’t save: '+r.err:'That needs an answer first',{noUndo:true});return}
+  wlRegPut({[key]:{...r.rec,chosen:o.label||''}});scheduleRender();toast('Saved',{noUndo:true});
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-x]');if(!t)return;const a=t.dataset.x,k=t.dataset.k;
+  if(a==='wtog'){XS.wHide=!XS.wHide;scheduleRender();return}
+  if(a==='wundo'){if(wlUndo([k]))toast('Undone',{noUndo:true});return}
+  if(a==='wundoall'){const n=wlUndo(wlSaved().map(x=>x.k));if(n)toast('Undid '+n,{noUndo:true});return}
+  if(a==='wedit'){wlEditSheet(k);return}
+  if(a==='wskip'){wlRegPut({[wlKey((wlQuestions().find(x=>x.k===k)||{}).src||k)]:{at:Date.now(),skipped:true}});scheduleRender();return}
+  if(a==='wopt'){wlOption(k,+t.dataset.o);return}
+});

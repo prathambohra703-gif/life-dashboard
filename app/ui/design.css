@@ -141,3 +141,12 @@ body.nowall .sec-hero{background:linear-gradient(155deg,#1b211d,#101312 60%,#0b0
 .ag-detail{margin:0 0 var(--s3);padding:var(--s3);border-radius:var(--r1);background:var(--tint);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
 .icon-btn.agdot{position:relative}
 .icon-btn.agdot::after{content:'';position:absolute;top:6px;right:6px;width:9px;height:9px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--bg,#0b0b0c)}
+
+/* ---- Wispr logger card on Today ---- */
+.wi-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s2)}
+.wi-head h2{flex:1;min-width:0;display:block}.wi-head h2 small{display:block;margin:4px 0 0}
+.wi-tog{flex:none;min-width:64px}
+.wi-lbl{margin:var(--s3) 0 var(--s1)}
+.wi-li .m{flex:1;min-width:0}.wi-li .m b,.wi-li .m span{white-space:normal;overflow-wrap:anywhere}
+.wi-li .btn{flex:none}
+.wi-q .m b{font-weight:600}

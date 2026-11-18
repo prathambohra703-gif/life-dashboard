@@ -16,7 +16,7 @@ Pratham is a law student, not a developer. Every step he must do himself has to 
 3. Never store card or account numbers, logins or passwords.
 4. No placeholder data, fake numbers or broken image links in anything he sees.
 5. Do not add: a separate sleep tab, a full journaling module, more habits, live stock tickers.
-6. Nothing is applied silently: logging needs his confirmation; nightly-review suggestions need approval.
+6. Nothing is applied without a way back. Typed logging needs his confirmation. Entries the Wispr logger reads from his own Wispr Flow notes are saved automatically with Undo (his decision, 19 Nov 2026); anything unclear waits as a question. Other agents' suggestions still need his approval.
 7. Do not claim "done" or "premium" without passing tests and screenshots you have looked at.
 8. Stop and ask only for: creating an account, pasting a key, approving a cost, an import mismatch, or a requirement that turns out impossible.
 

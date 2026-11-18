@@ -81,7 +81,7 @@ async def main():
     await ev("settingsSheet()");await p.click('[data-x=agents]');await p.wait_for_timeout(300)
     row=lambda k:"(()=>{const r=document.querySelector('[data-agent="+k+"]');return r?r.textContent:''})()"
     order=await ev("[...document.querySelectorAll('.ag-li b')].map(x=>x.textContent)")
-    ok('agents listed in order',order==['Nightly review','Daily backup','Calendar feed','Health check','Sunday review prep','Month-end report','CFA coach','Journal scout','Semester Scribe'],order)
+    ok('agents listed in order',order==['Wispr logger','Daily backup','Calendar feed','Health check','Sunday review prep','Month-end report','CFA coach','Journal scout','Semester Scribe'],order)
     ok('health: Never run with no record',(await ev(row('health'))).endswith('Never run'))
     ok('no dot with no problems',await ev("!document.querySelector('[data-act=settings]').classList.contains('agdot')"))
     await ev("LD.write('meta','agent-health',{at:Date.now(),ok:true,summary:'All good',detail:'Sync fine.'})");await p.wait_for_timeout(300)

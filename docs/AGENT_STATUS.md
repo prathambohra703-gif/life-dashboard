@@ -4,7 +4,7 @@ Settings > Agents > Agent status reads these records. Agents write one after eve
 
 | Agent | Record | Problem if older than |
 |---|---|---|
-| Nightly review | newest `proposals` record whose id starts with a date (YYYY-MM-DD), field `at` | 36 h |
+| Wispr logger (key `nightly`) | newest `proposals` record with `auto:true` or an id starting with a date (YYYY-MM-DD), field `at`; summary "N saved, M need you" | 36 h |
 | Daily backup | `meta/backup` `{at, file, records}` | 36 h |
 | Calendar feed | `meta/calendar` `{at}` (written by the app) | never |
 | Health check | `meta/agent-health` | 36 h |
@@ -24,4 +24,4 @@ Shape of every `meta/agent-<key>` record (collection `meta`, id `agent-<key>`):
 - Overwrite the same record each run; no history is kept.
 - Revise suggestions in `proposals` items: `{"kind":"topic","course":"<id or name>","t":"...","why":"..."}` and `{"kind":"case","course":"...","name":"...","point":"one-line holding","topic":"optional topic title","why":"..."}`.
 
-Other agents name their proposals records `<agent>-<date>` (health-, sunday-, monthend-, cfa-, journal-, scribe-) so they never count as the nightly review.
+Other agents name their proposals records `<agent>-<date>` (health-, sunday-, monthend-, cfa-, journal-, scribe-) so they never count as the Wispr logger. Item formats for the logger are in `docs/WISPR_ITEMS.md`.
