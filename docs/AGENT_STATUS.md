@@ -13,6 +13,7 @@ Settings > Agents > Agent status reads these records. Agents write one after eve
 | CFA coach | `meta/agent-cfa` | 10 days |
 | Journal scout | `meta/agent-journal` | 35 days |
 | Semester Scribe | `meta/agent-scribe` | 36 h |
+| Morning paper | `meta/agent-paper` | 36 h |
 | Outlook check (Mac) | `meta/agent-outlook` | 36 h |
 
 Shape of every `meta/agent-<key>` record (collection `meta`, id `agent-<key>`):
@@ -25,4 +26,4 @@ Shape of every `meta/agent-<key>` record (collection `meta`, id `agent-<key>`):
 - Overwrite the same record each run; no history is kept.
 - Revise suggestions in `proposals` items: `{"kind":"topic","course":"<id or name>","t":"...","why":"..."}` and `{"kind":"case","course":"...","name":"...","point":"one-line holding","topic":"optional topic title","why":"..."}`.
 
-Other agents name their proposals records `<agent>-<date>` (health-, sunday-, monthend-, cfa-, journal-, scribe-, outlook-) so they never count as the Wispr logger. Item formats for the logger are in `docs/WISPR_ITEMS.md`.
+Other agents name their proposals records `<agent>-<date>` (health-, sunday-, monthend-, cfa-, journal-, scribe-, outlook-) so they never count as the Wispr logger. The morning paper is not a proposal: it writes `meta` records with ids `paper-YYYY-MM-DD`, which the Wispr logger never reads. Item formats for the logger are in `docs/WISPR_ITEMS.md`.

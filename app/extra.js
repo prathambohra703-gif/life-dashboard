@@ -309,6 +309,7 @@ function wizAll(){
 /* ---------- agent status ---------- */
 const AGENTS=[
   {key:'nightly',name:'Wispr logger',what:'Reads your Wispr notes twice a day, saves the clear items and leaves questions on Today. Runs about 2 PM and 12:30 AM.',hrs:36},
+  {key:'paper',name:'Morning paper',what:'Builds your one-page Daily Brief with news, markets, calendar and a quote. Runs at 5:45 AM.',hrs:36,meta:'agent-paper'},
   {key:'backup',name:'Daily backup',what:'Saves a copy of all your records. Runs about 4:30 AM.',hrs:36},
   {key:'calendar',name:'Calendar feed',what:'Publishes your dates to the calendar link when they change.',hrs:0},
   {key:'health',name:'Health check',what:'Checks sync, backups and the other agents.',hrs:36,meta:'agent-health'},
