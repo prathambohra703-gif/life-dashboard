@@ -20,8 +20,8 @@
 '.pp-card p{margin:0 0 var(--s3);color:var(--mute);font-size:14px}.pp-card .row{gap:var(--s2)}',
 /* paper shell and palettes */
 '#paper{position:fixed;inset:0;z-index:300;overflow:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;background:var(--pp-bg);color:var(--pp-ink);scroll-behavior:auto}',
-'#paper,#paper.pp-day{--pp-bg:#ece5d3;--pp-sheet:#f7f2e8;--pp-ink:#1b1915;--pp-mute:#5c5547;--pp-rule:#1b1915;--pp-hair:rgba(27,25,21,.16);--c-law:#7a1f2e;--c-fin:#1d3a6b;--c-ai:#0d6665;--c-trd:#2a5d2c;--c-def:#5c5547;--pp-up:#1b6a39;--pp-down:#a32323;--pp-pill:rgba(27,25,21,.07);--pp-shadow:0 1px 18px rgba(60,45,20,.22)}',
-'#paper.pp-night{--pp-bg:#100f0d;--pp-sheet:#1c1a16;--pp-ink:#efe9dc;--pp-mute:#b3ab9b;--pp-rule:#efe9dc;--pp-hair:rgba(239,233,220,.17);--c-law:#f0909e;--c-fin:#97b8f0;--c-ai:#5fcfc6;--c-trd:#91d28d;--c-def:#b3ab9b;--pp-up:#6fd194;--pp-down:#ff8f86;--pp-pill:rgba(239,233,220,.09);--pp-shadow:0 1px 18px rgba(0,0,0,.5)}',
+'#paper,#paper.pp-day{--pp-bg:#ece5d3;--pp-sheet:#f7f2e8;--pp-ink:#1b1915;--pp-mute:#5c5547;--pp-rule:#1b1915;--pp-hair:rgba(27,25,21,.16);--c-law:#7a1f2e;--c-fin:#1d3a6b;--c-ai:#0d6665;--c-trd:#2a5d2c;--c-def:#5c5547;--pp-up:#1b6a39;--pp-down:#a32323;--pp-pill:rgba(27,25,21,.07);--pp-gold:#7a4e00;--pp-shadow:0 1px 18px rgba(60,45,20,.22)}',
+'#paper.pp-night{--pp-bg:#100f0d;--pp-sheet:#1c1a16;--pp-ink:#efe9dc;--pp-mute:#b3ab9b;--pp-rule:#efe9dc;--pp-hair:rgba(239,233,220,.17);--c-law:#f0909e;--c-fin:#97b8f0;--c-ai:#5fcfc6;--c-trd:#91d28d;--c-def:#b3ab9b;--pp-up:#6fd194;--pp-down:#ff8f86;--pp-pill:rgba(239,233,220,.09);--pp-gold:#e8b85c;--pp-shadow:0 1px 18px rgba(0,0,0,.5)}',
 '#paper *{box-sizing:border-box}',
 '.pp-bar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;justify-content:flex-end;padding:6px 16px;background:var(--pp-bg);border-bottom:1px solid var(--pp-hair);backdrop-filter:blur(6px)}',
 '.pp-bar .pp-bt{margin-right:auto;font:600 12px var(--font-body);font-variant:small-caps;letter-spacing:.14em;color:var(--pp-mute);display:none}',
@@ -108,6 +108,33 @@
 '.pp-sub{font:700 11px var(--font-body);font-variant:all-small-caps;letter-spacing:.16em;color:var(--pp-mute);margin:14px 0 0}',
 '.pp-none{font:14px/1.5 var(--font-body);color:var(--pp-mute);margin:0;padding:6px 0}',
 '.pp-empty-sec{font:italic 15px/1.5 var(--font-body);color:var(--pp-mute);padding:6px 0}',
+/* Sunday edition */
+'.pp-sun .pp-mast{border-top:3px solid var(--pp-gold);border-bottom:3px solid var(--pp-gold)}',
+'.pp-sun .pp-mast:before,.pp-sun .pp-mast:after{background:var(--pp-gold)}.pp-sun .pp-mast:before{top:5px}.pp-sun .pp-mast:after{bottom:5px}',
+'.pp-sun .pp-ed .pp-wk-r{white-space:nowrap;color:var(--pp-gold);font-weight:700}',
+'.pp-sun .pp-quote:before{color:var(--pp-gold)}',
+'.pp-sun .pp-mk>div{border-top-color:var(--pp-gold)}',
+'.pp-mkl{margin:0 0 6px;font:700 12px var(--font-body);font-variant:all-small-caps;letter-spacing:.16em;color:var(--pp-gold)}',
+'.pp-week{margin:0 0 6px}',
+'.pp-wsec{--c:var(--pp-gold);margin:0 0 28px;scroll-margin-top:64px}',
+'.pp-wsec>h2{display:flex;align-items:center;gap:10px;margin:0 0 6px;font:700 13px var(--font-body);font-variant:all-small-caps;letter-spacing:.16em;color:var(--pp-gold)}',
+'.pp-wsec>h2:before{content:"";width:28px;height:3px;background:var(--pp-gold);flex:none}',
+'.pp-revs{column-count:1;column-gap:40px}',
+'@media (min-width:700px){.pp-revs{column-count:2;column-rule:1px solid var(--pp-hair)}}',
+'.pp-rv{break-inside:avoid;padding:14px 0 8px;border-bottom:1px solid var(--pp-hair)}',
+'.pp-rv .pp-kick{margin:0 0 8px;font-size:12px}',
+'.pp-rv .pp-hd{font:600 22px/1.2 var(--font-display);margin:0 0 6px}',
+'.pp-rv .pp-gist{margin:0 0 4px;font-size:17px;line-height:1.55;max-width:66ch}',
+'.pp-ah{list-style:none;margin:0;padding:0}',
+'.pp-ah li{display:grid;grid-template-columns:minmax(96px,150px) minmax(0,1fr);gap:4px 18px;padding:12px 0;border-bottom:1px solid var(--pp-hair);break-inside:avoid}.pp-ah li:last-child{border-bottom:0}',
+'.pp-ah time{display:block;font:700 14px/1.3 var(--font-body);font-variant-numeric:tabular-nums lining-nums;color:var(--pp-ink)}',
+'.pp-ah time small{display:block;font:600 12px var(--font-body);font-variant:all-small-caps;letter-spacing:.12em;color:var(--pp-gold);margin-top:2px}',
+'.pp-ah b{display:block;font:600 19px/1.25 var(--font-display);margin:0 0 3px}',
+'.pp-ah p{margin:0;font-size:16px;line-height:1.5;color:var(--pp-mute);max-width:66ch}',
+'@media (max-width:429px){.pp-ah li{grid-template-columns:1fr}}',
+'.pp-sun .pp-lead{border-bottom-color:var(--pp-gold)}',
+'.pp-nh{margin:0 0 6px;font:700 13px var(--font-body);font-variant:all-small-caps;letter-spacing:.16em;color:var(--pp-ink);padding-bottom:8px;border-bottom:1px solid var(--pp-rule)}',
+'.pp-side section[data-pp=yweek] h3{border-bottom-color:var(--pp-gold);color:var(--pp-gold)}',
 /* motion */
 '@keyframes ppin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}',
 '@media (prefers-reduced-motion:no-preference){.pp-sheet>*{animation:ppin .6s cubic-bezier(.2,.7,.2,1) both}.pp-sheet>*:nth-child(2){animation-delay:.05s}.pp-sheet>*:nth-child(3){animation-delay:.1s}.pp-sheet>*:nth-child(4){animation-delay:.15s}.pp-sheet>*:nth-child(5){animation-delay:.2s}.pp-sheet>*:nth-child(6){animation-delay:.25s}#paper{animation:ppfade .25s ease both}@keyframes ppfade{from{opacity:0}to{opacity:1}}}',
@@ -116,7 +143,7 @@
 '@media print{',
  'html,body{background:#fff!important;height:auto!important;overflow:visible!important}',
  'body>*:not(#paper){display:none!important}',
- '#paper,#paper.pp-night{--pp-bg:#fff;--pp-sheet:#fff;--pp-ink:#1b1915;--pp-mute:#4d473b;--pp-rule:#1b1915;--pp-hair:rgba(27,25,21,.3);--c-law:#7a1f2e;--c-fin:#1d3a6b;--c-ai:#0d6665;--c-trd:#2a5d2c;--c-def:#4d473b;--pp-up:#1b6a39;--pp-down:#a32323;--pp-pill:rgba(27,25,21,.07)}',
+ '#paper,#paper.pp-night{--pp-gold:#7a4e00;--pp-bg:#fff;--pp-sheet:#fff;--pp-ink:#1b1915;--pp-mute:#4d473b;--pp-rule:#1b1915;--pp-hair:rgba(27,25,21,.3);--c-law:#7a1f2e;--c-fin:#1d3a6b;--c-ai:#0d6665;--c-trd:#2a5d2c;--c-def:#4d473b;--pp-up:#1b6a39;--pp-down:#a32323;--pp-pill:rgba(27,25,21,.07)}',
  '#paper{position:static!important;inset:auto;overflow:visible;display:block;animation:none!important}',
  '.pp-sheet,.pp-sheet>*{animation:none!important}',
  '.pp-bar,.pp-index,.pp-rd{display:none!important}',
@@ -132,6 +159,13 @@
  '.pp-side h3{font-size:7pt;margin-bottom:2px;padding-bottom:2px}.pp-row{font-size:7.5pt;padding:1.5px 0;gap:6px}.pp-row .pp-src{font-size:6.5pt}.pp-none{font-size:7.5pt;padding:2px 0}.pp-sub{margin-top:4px;font-size:6.5pt}',
  '.pp-dot>span:first-child{padding-left:12px}.pp-dot>span:first-child:before{width:6px;height:6px;top:.5em}.pp-pill{font-size:6pt;padding:2px 5px 1px}',
  '.pp-side .pp-x{display:none}',
+ '.pp-sheet.pp-sun{max-height:none;overflow:visible;break-inside:auto}',
+ '.pp-sun .pp-mast{border-top-width:2px;border-bottom-width:2px}.pp-mkl{font-size:6.5pt;margin-bottom:2px}',
+ '.pp-week{break-after:page;page-break-after:always;margin:0}.pp-wsec{margin:0 0 10px}.pp-wsec>h2{font-size:8pt}.pp-wsec>h2:before{height:2px}',
+ '.pp-revs{column-count:2;column-gap:14px;column-rule:.5pt solid #999}.pp-rv{padding:5px 0 4px}.pp-rv .pp-kick{font-size:7pt;margin-bottom:3px}.pp-rv .pp-hd{font-size:12pt;margin-bottom:2px}.pp-rv .pp-gist{font-size:8.5pt;line-height:1.35;max-width:none}.pp-rv .pp-src{font-size:7pt}',
+ '.pp-ah li{padding:5px 0;grid-template-columns:34mm minmax(0,1fr);gap:0 10px}.pp-ah time{font-size:8.5pt}.pp-ah time small{font-size:7pt}.pp-ah b{font-size:10.5pt}.pp-ah p{font-size:8.5pt;line-height:1.35;max-width:none}',
+ '.pp-side section[data-pp=yweek]{grid-column:span 2}',
+ '.pp-sun .pp-lead{padding-top:0}.pp-nh{font-size:8pt;margin:0 0 3px;padding-bottom:2px}',
  '#paper a.pp-a{padding:0;color:#000;text-decoration:none}',
  '#paper a[href]:after{content:none!important}',
 '}'].join('');
@@ -143,6 +177,7 @@
 
   /* ---------- Today card ---------- */
   const SEC_NIGHT={'Law & regulation':'#f0909e','Finance':'#97b8f0','AI':'#5fcfc6','Trading':'#91d28d'};
+  const isSun=r=>!!(r&&r.weekly&&typeof r.weekly==='object');
   function card(){
     const t=todayStr(),cur=rec('paper-'+t),old=papers().filter(m=>m.id!=='paper-'+t)[0];
     let head,sub='',btn='',kick='';
@@ -156,7 +191,7 @@
       if(old){head='Today’s paper is not ready yet';btn='<button class="btn" data-pp="open" data-d="'+old.id.slice(6)+'">Open latest</button>'}
       else head='Your first paper arrives at 5:45 AM';
     }
-    return '<section class="card quiet pp-card" data-pp="card"><div class="pp-cm">The Daily Brief</div><div class="lbl">'+esc(sub)+'</div>'+kick+'<div class="pp-h">'+head+'</div>'+(btn?'<div class="row">'+btn+'</div>':'')+'</section>';
+    return '<section class="card quiet pp-card" data-pp="card"><div class="pp-cm">'+(isSun(cur)?'The Sunday Brief':'The Daily Brief')+'</div><div class="lbl">'+esc(sub)+'</div>'+kick+'<div class="pp-h">'+head+'</div>'+(btn?'<div class="row">'+btn+'</div>':'')+'</section>';
   }
   const _v=vToday;
   vToday=function(){
@@ -185,6 +220,26 @@
     if(ex.length){const dim=new Date(parse(y).getFullYear(),parse(y).getMonth()+1,0).getDate(),lim=+C().limit;R.push(row('Spend (your share)',inr(sum(ex,mineOf))+(lim>0?' of '+inr(Math.round(lim/dim)):'')))}
     return R.length?R.join(''):none('Nothing logged yesterday.');
   }
+  /* Your week: the 7 days ending yesterday, from the same helpers as Yesterday at a glance and the Sunday review */
+  function yourWeek(t){
+    const ds=[];for(let i=7;i>=1;i--)ds.push(addDays(t,-i));
+    const prev=[];for(let i=14;i>=8;i--)prev.push(addDays(t,-i));
+    const T=C().targets,R=[],hs=ds.map(d=>habits(d)),logged=hs.filter(h=>h.done>0);
+    const gw=Math.round(+(C().weekly||{}).gym),gt=gw>=1&&gw<=7?gw:5;
+    if(logged.length)R.push(row('Gym sessions',ds.filter(d=>(day(d).habits||{}).gym).length+' of '+gt));
+    const pd=ds.filter(d=>totals(d).nM>0);
+    if(pd.length)R.push(row('Protein target met',ds.filter(d=>totals(d).p>=T.protein).length+' of '+pd.length+' days'));
+    if(logged.length)R.push(row('Habits, average',Math.round(logged.reduce((a,h)=>a+h.score,0)/logged.length*100)+'%'));
+    const cfa=ds.reduce((a,d)=>a+(+day(d).cfaMin||0),0),stu=ds.reduce((a,d)=>a+(+day(d).studyMin||0),0),hr=m=>(Math.round(m/6)/10)+' h';
+    if(cfa>0)R.push(row('CFA',hr(cfa)));
+    if(stu>0)R.push(row('Study',hr(stu)));
+    const ex=state.entries.filter(e=>e.type==='txn'&&e.kind==='expense'&&e.date>=ds[0]&&e.date<=ds[6]);
+    if(ex.length){const e=parse(ds[6]),dim=new Date(e.getFullYear(),e.getMonth()+1,0).getDate(),lim=+C().limit;R.push(row('Spend (your share)',inr(sum(ex,mineOf))+(lim>0?' of '+inr(Math.round(lim*7/dim)):'')))}
+    const wavg=L=>{const w=L.map(d=>day(d).weight).filter(x=>x!=null&&x!==''&&!isNaN(+x)).map(Number);return w.length?w.reduce((a,b)=>a+b,0)/w.length:null};
+    const w1=wavg(ds),w0=wavg(prev);
+    if(w1!=null){R.push(row('Weight, 7-day avg',w1.toFixed(1)+' kg'));if(w0!=null){const c=Math.round((w1-w0)*10)/10;R.push(row('Change on week before',(c>0?'+':c<0?'−':'')+Math.abs(c).toFixed(1)+' kg'))}}
+    return R.length?'<section data-pp="yweek"><h3>Your week</h3>'+R.join('')+'</section>':'';
+  }
   function todo(t){
     const pr={high:0,med:1,low:2},open=state.todos.filter(x=>!x.done).sort((a,b)=>(pr[a.pri||'med']-pr[b.pri||'med'])).slice(0,6);
     const dues=acadList().filter(a=>a.d&&!a.done&&diff(a.d,t)>=0&&diff(a.d,t)<=7).sort((a,b)=>a.d<b.d?-1:1).slice(0,5);
@@ -210,6 +265,7 @@
   const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const longDate=d=>{const x=parse(d);return WD[x.getDay()]+', '+x.getDate()+' '+MON[x.getMonth()]+' '+x.getFullYear()};
+  const MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const SC={'Law & regulation':'law','Finance':'fin','AI':'ai','Trading':'trd'};
   const cv=s=>'--c:var(--c-'+(SC[s]||'def')+')';
   const slug=s=>'pp-s-'+(SC[s]||String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-'));
@@ -231,17 +287,28 @@
     const words=news.reduce((n,x)=>n+((x.head||'')+' '+(x.gist||'')).split(/\s+/).filter(Boolean).length,0),mins=Math.max(2,Math.ceil(words/220));
     const ed=Math.max(1,papers().filter(m=>m.id<='paper-'+d).length);
     const q=r.quote&&r.quote.text?'<figure class="pp-quote" style="margin-left:auto;margin-right:auto"><q>'+esc(r.quote.text)+'</q>'+(r.quote.by?'<b>'+esc(r.quote.by)+'</b>':'')+'</figure>':'';
-    const mk=Array.isArray(r.markets)?(r.markets.length?'<div class="pp-mk" data-pp="markets" role="list">'+r.markets.map(m=>{const c=String(m.chg||'').trim(),dn=/^[-−–]/.test(c),up=/^\+/.test(c);return '<div role="listitem"><span class="nm">'+esc(m.name)+'</span><b>'+esc(m.value)+'</b><span class="ch '+(dn?'dn':up?'up':'')+'">'+(dn?'▼ ':up?'▲ ':'')+esc(c.replace(/^[-+−–]\s*/,dn?'−':'+'))+'</span><span class="as">'+esc(m.asof||'')+'</span></div>'}).join('')+'</div>':'<div class="pp-mk pp-empty" data-pp="markets"><p class="pp-none" style="padding:0">Market figures could not be confirmed this morning.</p></div>'):'';
+    const mkOf=L=>(L.length?'<div class="pp-mk" data-pp="markets" role="list">'+L.map(m=>{const c=String(m.chg||'').trim(),dn=/^[-−–]/.test(c),up=/^\+/.test(c);return '<div role="listitem"><span class="nm">'+esc(m.name)+'</span><b>'+esc(m.value)+'</b><span class="ch '+(dn?'dn':up?'up':'')+'">'+(dn?'▼ ':up?'▲ ':'')+esc(c.replace(/^[-+−–]\s*/,dn?'−':'+'))+'</span><span class="as">'+esc(m.asof||'')+'</span></div>'}).join('')+'</div>':'<div class="pp-mk pp-empty" data-pp="markets"><p class="pp-none" style="padding:0">Market figures could not be confirmed this morning.</p></div>');
+    const mk=Array.isArray(r.markets)?mkOf(r.markets):'';
     const cal=(r.calendar||[]).length?r.calendar.map(e=>row(e.title,e.time)).join(''):none('Nothing on the calendar today.');
+    const W=isSun(r)?r.weekly:null,title=W?'The Sunday Brief':'The Daily Brief';
+    const rv=W&&Array.isArray(W.review)?W.review.filter(x=>x&&x.head):[];
+    const ah=W&&Array.isArray(W.ahead)?W.ahead.filter(x=>x&&x.what&&/^\d{4}-\d{2}-\d{2}$/.test(x.date||'')&&diff(x.date,t)>=0).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0):[];
+    const wmk=W&&Array.isArray(W.markets)&&W.markets.length;
+    const mkAll=wmk?'<div class="pp-mkl" data-pp="mklabel">Markets · Week</div>'+mkOf(W.markets):mk;
+    const rvH=rv.length?'<section class="pp-wsec" id="pp-review" data-pp="review"><h2>The week in review</h2><div class="pp-revs">'+rv.map(x=>'<article class="pp-rv" style="'+cv(x.sec)+'"><div class="pp-kick">'+esc(x.sec||'Review')+'</div><div class="pp-hd">'+lnk(x)+'</div>'+(x.why?'<p class="pp-gist">'+esc(x.why)+'</p>':'')+'<div class="pp-foot">'+meta(x)+rds(x)+'</div></article>').join('')+'</div></section>':'';
+    const ahH=ah.length?'<section class="pp-wsec" id="pp-ahead" data-pp="ahead"><h2>The week ahead</h2><ul class="pp-ah">'+ah.map(x=>{const n=diff(x.date,t),dt=parse(x.date);return '<li><time datetime="'+esc(x.date)+'">'+esc(DOW[dt.getDay()]+' '+dt.getDate()+' '+MON3[dt.getMonth()])+'<small>'+(n===0?'today':n===1?'tomorrow':'in '+n+' days')+'</small></time><div><b>'+esc(x.what)+'</b>'+(x.why?'<p>'+esc(x.why)+'</p>':'')+'</div></li>'}).join('')+'</ul></section>':'';
+    const wkH=rvH||ahH?'<div class="pp-week">'+rvH+ahH+'</div>':'';
+    const idxW=(rv.length?'<li><a class="pp-jump" href="#" data-pp="jump" data-t="pp-review" style="--c:var(--pp-gold)"><i></i><b>Week in review</b><span>'+rv.length+'</span></a></li>':'')+(ah.length?'<li><a class="pp-jump" href="#" data-pp="jump" data-t="pp-ahead" style="--c:var(--pp-gold)"><i></i><b>Week ahead</b><span>'+ah.length+'</span></a></li>':'');
+    const idxAll=W?idxW+idx:idx;
     const m=mode();
-    return '<div class="pp-bar"><span class="pp-bt">The Daily Brief</span><button data-pp="mode" aria-label="Switch reading mode">'+(m==='night'?'Day':'Night')+'</button><button data-pp="print">Save as PDF</button><button class="pri" data-pp="close">Close</button></div>'+
-      '<div class="pp-sheet" role="document"><header class="pp-mast"><h1>The Daily Brief</h1><div class="pp-ed" data-pp="edition">Vol. I · No. '+ed+' · '+esc(longDate(d))+' · '+mins+' min read</div></header>'+
-      mk+q+
-      (idx?'<nav class="pp-index" data-pp="index" aria-label="In this edition"><h2>In this edition</h2><ul>'+idx+'</ul></nav>':'')+
-      '<div class="pp-body"><main class="pp-main">'+
+    return '<div class="pp-bar"><span class="pp-bt">'+title+'</span><button data-pp="mode" aria-label="Switch reading mode">'+(m==='night'?'Day':'Night')+'</button><button data-pp="print">Save as PDF</button><button class="pri" data-pp="close">Close</button></div>'+
+      '<div class="pp-sheet'+(W?' pp-sun':'')+'" role="document"><header class="pp-mast"><h1>'+title+'</h1><div class="pp-ed" data-pp="edition">Vol. I · No. '+ed+' · '+esc(longDate(d))+(W&&W.range?' · <span class="pp-wk-r">Week of '+esc(W.range)+'</span>':'')+' · '+mins+' min read</div></header>'+
+      mkAll+q+
+      (idxAll?'<nav class="pp-index" data-pp="index" aria-label="In this edition"><h2>In this edition</h2><ul>'+idxAll+'</ul></nav>':'')+
+      '<div class="pp-body"><main class="pp-main">'+wkH+(W&&(lead||secs)?'<h2 class="pp-nh" data-pp="dailyhd">Today’s news</h2>':'')+
       (lead?'<section class="pp-lead" id="pp-lead" data-pp="lead" style="'+cv(lead.sec)+'"><div class="pp-kick">Lead story'+(lead.sec?' · '+esc(lead.sec):'')+'</div><h2>'+lnk(lead)+'</h2>'+(lead.gist?'<p class="pp-gist">'+esc(lead.gist)+'</p>':'')+'<div class="pp-foot">'+meta(lead)+rd(lead)+'</div></section>':'')+
       '<div class="pp-secs">'+secs+'</div></main>'+
-      '<aside class="pp-side" aria-label="Your day"><section data-pp="cal"><h3>Today’s calendar</h3><div class="pp-cal">'+cal+'</div></section>'+plan(t)+
+      '<aside class="pp-side" aria-label="Your day">'+(W?yourWeek(t):'')+'<section data-pp="cal"><h3>Today’s calendar</h3><div class="pp-cal">'+cal+'</div></section>'+plan(t)+
       '<section data-pp="yday"><h3>Yesterday at a glance</h3>'+yesterday(d===t?t:d)+'</section>'+
       '<section data-pp="todo"><h3>To do</h3>'+todo(t)+'</section>'+
       '<section data-pp="inbox"><h3>From your inbox</h3>'+inbox()+'</section></aside></div></div>';
@@ -254,7 +321,7 @@
   function open(d){
     if(!rec('paper-'+d))return;
     close();window.__ppPrev=document.activeElement;
-    const el=document.createElement('div');el.id='paper';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label','The Daily Brief');
+    const el=document.createElement('div');el.id='paper';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label',isSun(rec('paper-'+d))?'The Sunday Brief':'The Daily Brief');
     el.className='pp-'+mode();el.innerHTML=sheet(d);document.body.appendChild(el);document.documentElement.classList.add('pp-lock');
     el.scrollTop=0;const b=el.querySelector('[data-pp=close]');try{b&&b.focus({preventScroll:true})}catch(e){}
   }
