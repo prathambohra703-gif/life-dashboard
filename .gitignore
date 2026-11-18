@@ -14,3 +14,4 @@ KICKOFF_PROMPT.md
 REPORT.md
 *.log
 app/cloud/old-month-end-report-task.md
+SESSION_LOG*.md
