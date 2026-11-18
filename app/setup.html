@@ -87,7 +87,7 @@ document.getElementById('cron').addEventListener('click',()=>{
   if(!/^https:\/\//.test(url)||!key||!sec){err.textContent='Generate the keys first, then fill in the Project URL and publishable key.';err.hidden=false;return}
   err.hidden=true;
   const q=s=>s.replace(/'/g,"''");
-  const sql="create extension if not exists pg_cron;\ncreate extension if not exists pg_net;\nselect cron.unschedule(jobid) from cron.job where jobname = 'ld-remind';\nselect cron.schedule('ld-remind', '*/5 * * * *', $job$\n  select net.http_post(\n    url := '"+q(url)+"/functions/v1/remind',\n    headers := jsonb_build_object('Content-Type','application/json','apikey','"+q(key)+"','x-app-secret','"+q(sec)+"'),\n    body := '{}'::jsonb\n  );\n$job$);\n";
+  const sql="create extension if not exists pg_cron;\ncreate extension if not exists pg_net;\nselect cron.unschedule(jobid) from cron.job where jobname = 'ld-remind';\nselect cron.schedule('ld-remind', '*/5 * * * *', $job$\n  select net.http_post(\n    url := '"+q(url)+"/functions/v1/remind',\n    headers := jsonb_build_object('Content-Type','application/json','apikey','"+q(key)+"','x-app-secret','"+q(sec)+"'),\n    body := '{}'::jsonb,\n    timeout_milliseconds := 15000\n  );\n$job$);\n";
   copy(sql,document.getElementById('cronok'),document.getElementById('cron'));
 });
 /* progress */
