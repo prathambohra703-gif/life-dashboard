@@ -31,7 +31,7 @@ async def main():
     ok('hero: sub shows planned and done minutes',sub.startswith('Planned today: ') and ' min · done ' in sub,sub)
     ok('hero: CFA chip present',await ev("/CFA: \\d+ days to exam/.test(document.querySelector('.sec-hero__chips').textContent)"))
     # sub-nav
-    ok('subnav: five tabs, Plan selected by default',await ev("[...document.querySelectorAll('.subnav button')].map(b=>b.textContent).join()==='Plan,Exams,CFA,Tasks,Revise'&&(state.studyView==null||state.studyView==='plan')"))
+    ok('subnav: six tabs, Plan selected by default',await ev("[...document.querySelectorAll('.subnav button')].map(b=>b.textContent).join()==='Plan,Exams,CFA,Tasks,Revise,Notes'&&(state.studyView==null||state.studyView==='plan')"))
     # plan tab
     ok('plan: study plan, planned vs actual, focus timer, 60-day disclosure',await ev("(()=>{const t=document.getElementById('app').innerText;return /Study plan/.test(t)&&/Planned vs actual/.test(t)&&/Focus timer/.test(t)&&/Next 60 days/.test(t)})()"))
     ok('plan: 60-day planner collapsed by default',await ev("(()=>{const d=document.getElementById('st-60');return !!d&&!d.open})()"))

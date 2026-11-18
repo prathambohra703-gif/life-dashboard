@@ -92,6 +92,7 @@ function applySemester(){
 const _render=render;render=function(){try{applySemester()}catch(e){console.error(e)}try{if(state.mm==='poker'&&examOn(todayStr()))state.mm='spend'}catch(e){}_render();try{remPublish()}catch(e){}try{calPublish()}catch(e){}try{allowSeed()}catch(e){}try{agentDot()}catch(e){}};
 const KINDS=['Exam','Test','Submission','Presentation','Interviews','Task'];
 function semSheet(){
+  XS.wiz=null;
   const sm=semNow(),cs=sm.courses||[],its=(sm.items||[]).slice().sort((a,b)=>(a.d||'9999')<(b.d||'9999')?-1:1);
   const mile=k=>((sm.miles||[]).find(m=>k.test(m.t))||{}).d||'';
   sheet('<h2>Semester setup</h2><div class="stack">'+
@@ -105,7 +106,8 @@ function semSheet(){
    '<form data-xform="semnew" class="row wrap"><input type="text" name="name" placeholder="New semester name, e.g. Semester 8 · Spring 2027" required style="flex:1;min-width:200px"><button class="btn sm" type="submit">Start new semester</button></form>'+
    '<button class="btn pri" data-act="sheetclose">Done</button></div>');
 }
-const semSave=sm=>{saveCfg({sem:sm});applySemester();render();semSheet()};
+const semPut=sm=>{saveCfg({sem:sm});applySemester();render()};
+const semSave=sm=>{semPut(sm);XS.wiz?wizSheet(XS.wiz):semSheet()};
 
 /* ---------- CFA: question bank, pace to exam day, short review queue ---------- */
 LM.qb={t:'Log questions',f:[['date','Date','date'],['topic','Topic','sel',CFA_T.map(x=>x[0])],['done','Questions done','num'],['right','Correct','num']]};
@@ -138,7 +140,7 @@ cfaSystem=function(){
 
 /* ---------- nightly review inbox: proposals wait here until approved ---------- */
 LD.opened.then(()=>{LD.onCol('proposals',s=>{XS.props=s.docs.map(d=>({id:d.id,...d.data()}));scheduleRender();setTimeout(agentDot,0)});LD.onCol('meta',()=>setTimeout(agentDot,0))});
-function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case'})[it.kind]||'Suggestion'}
+function propLabel(it){return ({todo:'Add a task',deadline:'Add a deadline',log:'Log an entry',note:'Add to the daily note',topic:'Add a topic',case:'Add a case',course:'Add a course'})[it.kind]||'Suggestion'}
 function propText(it){return it.kind==='case'?(it.name||'')+(it.point?' — '+it.point:''):(it.text||it.title||it.cmd||it.t||it.name||'')}
 function propsCard(){
   const open=[];XS.props.forEach(p=>(p.items||[]).forEach((it,i)=>{if(!it.status)open.push({p,it,i})}));
@@ -187,6 +189,14 @@ function propDo(it){
     const es=lp.entries.map(e=>({...e,date:e.date||state.date}));es.forEach(e=>state.chat.pending.push(e));state.chat.open=true;renderDock();
     return {ok:true,undo:()=>{state.chat.pending=state.chat.pending.filter(e=>!es.includes(e));renderDock()}};
   }
+  if(k==='course'){
+    const n=String(it.name||'').trim().slice(0,160);if(!n)return {msg:'That course has no name'};
+    const sm=semNow(),cs=sm.courses||[];
+    if(cs.some(c=>String(c.name).trim().toLowerCase()===n.toLowerCase()))return {ok:true,dup:true,undo:()=>{}};
+    let id=slug(n).slice(0,12)||'c';while(cs.some(c=>c.id===id))id+='x';
+    semPut({...sm,courses:[...cs,{id,name:n,short:String(it.short||'').trim().slice(0,40)||n}]});
+    return {ok:true,undo:()=>{const s2=semNow();semPut({...s2,courses:(s2.courses||[]).filter(c=>c.id!==id),items:(s2.items||[]).filter(i=>i.c!==id)})}};
+  }
   if(k==='topic'||k==='case'){
     const c=propCourse(it.course);
     if(!c)return {msg:'I could not match that course. Pick it in the Edit sheet.',edit:true};
@@ -228,6 +238,7 @@ function propEditSheet(id,i,msg){
   else if(it.kind==='deadline')body=f('Title','title',it.title)+'<label class="fld"><span>Date</span><input type="date" name="date" value="'+esc(validYmd(it.date)?it.date:'')+'"></label>'+sel('Kind','k',KINDS.map(x=>[x,x]),KINDS.includes(it.k)?it.k:'Task')+sel('Course','course',cs,cm||(cs[0]||[''])[0]);
   else if(it.kind==='log')body='<label class="fld"><span>Entry to log</span><textarea name="cmd" rows="3">'+esc(it.cmd||'')+'</textarea></label><p class="xnote">It goes to the quick-log box for you to confirm.</p>';
   else if(it.kind==='note')body='<label class="fld"><span>Note</span><textarea name="text" rows="4">'+esc(it.text||'')+'</textarea></label>';
+  else if(it.kind==='course')body=f('Course name','name',it.name)+f('Short name','short',it.short);
   else if(it.kind==='topic')body=sel('Course','course',[['','Choose a course']].concat(cs),cm)+f('Topic','t',it.t||it.title);
   else if(it.kind==='case')body=sel('Course','course',[['','Choose a course']].concat(cs),cm)+f('Case name','name',it.name)+f('Holding, one line','point',it.point)+f('Linked topic (optional)','topic',it.topic);
   else return toast('Unknown suggestion type');
@@ -235,10 +246,50 @@ function propEditSheet(id,i,msg){
 }
 function propEditSave(fd){
   const id=String(fd.get('id')),i=+fd.get('i'),p=XS.props.find(x=>x.id===id),it=p&&p.items[i];if(!it||it.status){closeSheet();return}
-  const ed={...it};['title','pri','q','date','k','course','cmd','text','t','name','point','topic'].forEach(n=>{if(fd.has(n))ed[n]=String(fd.get(n)).trim()});
+  const ed={...it};['title','pri','q','date','k','course','cmd','text','t','name','point','topic','short'].forEach(n=>{if(fd.has(n))ed[n]=String(fd.get(n)).trim()});
   const r=propDo(ed);
   if(!r.ok){toast(r.msg);return}
   propPatch(id,{[i]:{...ed,status:'approved',edited:true}});closeSheet();toast('Approved',{noUndo:true});
+}
+
+/* ---------- semester rollover wizard (Study > Exams > Start new semester) ---------- */
+const WIZ_NAME='Semester 8 · Spring 2027';
+const wizItems=()=>{const o=propOpen();return o.filter(x=>x.it.kind==='course').concat(o.filter(x=>x.it.kind==='deadline'))};
+function wizSheet(step){
+  step=step||XS.wiz||1;XS.wiz=step;
+  const sm=semNow(),dots='<p class="faint" style="margin:0 0 var(--s3);font-size:12px" id="wiz-step">Step '+step+' of 3</p>';
+  let body='';
+  if(step===1){
+    body='<p class="xnote" style="margin:0">Starting a new semester archives <b>'+esc(sm.name||'this semester')+'</b> with its marks and history. Nothing is deleted, and the new semester starts with an empty course list.</p>'+
+      '<form data-xform="semnew" data-wiz="1" class="stack"><label class="fld"><span>New semester name</span><input type="text" name="name" value="'+esc(WIZ_NAME)+'" required autocomplete="off"></label><div class="row"><button class="btn pri" type="submit">Archive and continue</button><button class="btn" type="button" data-x="wizdone">Cancel</button></div></form>';
+  }else if(step===2){
+    const L=wizItems(),cs=sm.courses||[];
+    body='<h3 style="margin:0;font-size:17px">Waiting for the Scribe’s setup</h3>';
+    if(L.length){
+      body+='<div class="list" id="wiz-list">'+L.map(x=>'<div class="li"><div class="m"><b>'+esc(propText(x.it))+'</b><span>'+esc(propLabel(x.it))+(x.it.kind==='deadline'&&x.it.date?' · '+esc(x.it.date):'')+'</span></div></div>').join('')+'</div>'+
+        '<div class="row"><button class="btn pri" data-x="wizall" id="wiz-all">Approve all</button><button class="btn" data-x="wizstep" data-v="3">Skip, see summary</button></div><p class="faint" style="font-size:12px;margin:0">Courses are added first, then the deadlines.</p>';
+    }else{
+      body+='<p class="xnote" style="margin:0" id="wiz-none">No setup suggestions have arrived yet. Run semester setup on your Mac. It sends the courses and deadlines here, and they will appear in this step. Or add the courses by hand now.</p>';
+    }
+    body+='<div><div class="lbl" style="margin-bottom:6px">Courses in '+esc(sm.name||'this semester')+'</div>'+(cs.length?cs.map(c=>'<div class="lookrow"><b>'+esc(c.name)+'</b></div>').join(''):'<div class="empty">No courses yet.</div>')+
+      '<form data-xform="semcadd" class="row wrap" style="margin-top:8px"><input type="text" name="name" placeholder="Course name" required style="flex:2;min-width:160px"><input type="text" name="short" placeholder="Short name" style="flex:1;min-width:100px"><button class="btn sm pri" type="submit">Add course</button></form></div>'+
+      (L.length?'':'<div class="row"><button class="btn pri" data-x="wizstep" data-v="3">Continue</button></div>');
+  }else{
+    const t=todayStr(),cs=sm.courses||[],as=acadList().filter(a=>a.d).sort((a,b)=>a.d<b.d?-1:1),nx=as.find(a=>!a.done&&diff(a.d,t)>=0&&(a.k==='Exam'||a.k==='Test'));
+    body='<div id="wiz-sum"><div class="lbl" style="margin-bottom:6px">Courses ('+cs.length+')</div>'+(cs.length?cs.map(c=>'<div class="lookrow"><b>'+esc(c.name)+'</b></div>').join(''):'<div class="empty">None yet. Add them in Semester setup.</div>')+
+      '<div class="lbl" style="margin:var(--s3) 0 6px">Assessments by date ('+as.length+')</div>'+(as.length?'<div class="list">'+as.map(a=>'<div class="li"><div class="m"><b>'+esc(a.t)+'</b><span>'+esc(COURSES[a.c]||'')+' · '+esc(a.k)+' · '+dlabel(a.d)+'</span></div></div>').join('')+'</div>':'<div class="empty">None yet.</div>')+
+      '<div class="lbl" style="margin:var(--s3) 0 6px">Next exam</div>'+(nx?'<div class="li"><div class="m"><b>'+esc(nx.t)+'</b><span>'+dlabel(nx.d)+' · in '+diff(nx.d,t)+' day'+(diff(nx.d,t)===1?'':'s')+'</span></div></div>':'<div class="empty">No exam date set yet.</div>')+'</div>'+
+      '<div class="row"><button class="btn pri" data-x="wizdone">Done</button><button class="btn" data-x="wizstep" data-v="2">Back</button></div>';
+  }
+  sheet('<h2>Start new semester</h2>'+dots+'<div class="stack">'+body+'</div>');
+}
+function wizAll(){
+  const list=wizItems(),done=[],undos=[];let bad=0;
+  list.forEach(x=>{const r=propDo(x.it);if(r.ok){done.push(x);undos.push(r.undo)}else bad++});
+  if(!done.length)return toast(bad?'Nothing could be approved. Fix the items from the Nightly review card.':'Nothing to approve');
+  propGroup(done,()=>({status:'approved'}));
+  toast('Approved '+done.length+(bad?'. '+bad+' need a look.':''),{undo:()=>{undos.slice().reverse().forEach(f=>{try{f()}catch(e){}});propGroup(done,()=>null);if(XS.wiz)wizSheet(XS.wiz)}});
+  wizSheet(2);
 }
 /* ---------- agent status ---------- */
 const AGENTS=[
@@ -589,6 +640,10 @@ document.addEventListener('click',async ev=>{
   if(a==='cloud'){cloudSheet();return}
   if(a==='rem'){remSheet();return}
   if(a==='sem'){semSheet();return}
+  if(a==='semwiz'){XS.wiz=1;wizSheet(1);return}
+  if(a==='wizall'){wizAll();return}
+  if(a==='wizstep'){wizSheet(+t.dataset.v);return}
+  if(a==='wizdone'){XS.wiz=null;closeSheet();return}
   if(a==='install'){installSheet();return}
   if(a==='calfeed'){calSheet();return}
   if(a==='calcopy'){const u=calUrl();try{await navigator.clipboard.writeText(u);toast('Link copied',{noUndo:true})}catch(e){const i=xq('#calurl');if(i){i.select();document.execCommand&&document.execCommand('copy')}toast('Link selected. Copy it from the box.',{noUndo:true})}return}
@@ -638,7 +693,7 @@ document.addEventListener('submit',async ev=>{
   if(k==='semcadd'){const name=v('name');if(!name)return;let id=slug(name).slice(0,12)||'c';while(sm.courses.some(c=>c.id===id))id+='x';semSave({...sm,courses:[...sm.courses,{id,name,short:v('short')||name}]});return}
   if(k==='semiadd'){const t=v('t');if(!t)return;const d=v('d');semSave({...sm,items:[...(sm.items||[]),{id:v('c')+'-'+uid(),c:v('c'),t,d:d||null,k:v('k'),...(d?{}:{tbc:true})}]});return}
   if(k==='semmiles'){const keep=(sm.miles||[]).filter(m=>!/classes end|exams begin|exams end/i.test(m.t)),add=[];if(v('ce'))add.push({d:v('ce'),t:'Classes end'});if(v('eb'))add.push({d:v('eb'),t:'End-semester exams begin'});if(v('ee'))add.push({d:v('ee'),t:'End-semester exams end'});semSave({...sm,miles:[...keep,...add].sort((a,b)=>a.d<b.d?-1:1)});return}
-  if(k==='semnew'){const name=v('name');if(!name)return;const arch=(C().semArchive||[]).concat([{...sm,archivedAt:todayStr()}]);saveCfg({semArchive:arch});semSave({name,courses:[],items:[],miles:[]});toast('New semester started. The old one is archived.',{noUndo:true});return}
+  if(k==='semnew'){const name=v('name');if(!name)return;if(f.dataset.wiz)XS.wiz=2;const arch=(C().semArchive||[]).concat([{...sm,archivedAt:todayStr()}]);saveCfg({semArchive:arch});semSave({name,courses:[],items:[],miles:[]});toast('New semester started. The old one is archived.',{noUndo:true});return}
   if(k==='rem'){
     const on=n=>fd.get(n)==='on',tm=(n,d)=>/^\d{2}:\d{2}$/.test(v(n))?v(n):d,prog=remProg(),r=remCfg(prog);
     const ev2=clamp(+v('waterEv')||120,30,360);

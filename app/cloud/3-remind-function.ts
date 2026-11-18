@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     return error ? json({ error: error.message }, 400) : json(data);
   }
   if (body.action === "put") {
-    if (!["meta", "proposals"].includes(body.col)) return json({ error: "only meta and proposals can be written this way" }, 400);
+    if (!["meta", "proposals", "notes"].includes(body.col)) return json({ error: "only meta, proposals and notes can be written this way" }, 400);
     const { error } = await sb.rpc("service_put", { p_email: body.email, p_col: body.col, p_id: body.id, p_data: body.data });
     return error ? json({ error: error.message }, 400) : json({ ok: true });
   }
