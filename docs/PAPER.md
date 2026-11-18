@@ -48,3 +48,34 @@ Rules:
 - Today screen: a small "Morning paper" card with the date, the lead headline and "Open". Shown every day; if today's record is missing, it says "Today's paper is not ready yet" and offers the latest one.
 - Tapping opens a full-screen newspaper page laid out to fit ONE A4 page: masthead (title "The Daily Brief", date, quote), lead story, news in columns by section, markets strip, calendar, yesterday at a glance, to do, inbox.
 - Buttons: **Save as PDF** (prints the page; print CSS fits one A4 page, no app chrome) and **Close**. Every news headline links to its `url` (opens in a new tab).
+
+## 4. Sunday edition
+
+On Sundays (Asia/Kolkata) the agent writes the same `paper-YYYY-MM-DD` record with everything above PLUS one extra field:
+
+```json
+"weekly": {
+  "range": "16–22 Nov",
+  "review": [
+    {"sec": "Law & regulation", "head": "...", "why": "...", "src": "...", "url": "https://...", "when": "18 Nov"}
+  ],
+  "ahead": [
+    {"date": "2026-11-25", "what": "RBI MPC decision", "why": "..."}
+  ],
+  "markets": [
+    {"name": "Nifty 50", "value": "...", "chg": "+1.2%", "asof": "21 Nov close (week)"}
+  ]
+}
+```
+
+- `review`: the 5 to 7 most important stories of the past Monday to Saturday across the four sections, each with `why` (at most 220 characters: why it mattered and what to watch next). Same source rules as daily news; no item older than 7 days.
+- `ahead`: 3 to 6 scheduled events for the coming week that matter to him: RBI MPC or policy dates, SEBI board meetings, consultation-paper deadlines, major results, economic data releases (CPI, GDP, IIP), big IPOs, important court hearings. Only dates confirmed by a reputable source; `date` as YYYY-MM-DD.
+- `markets`: weekly change (Friday close vs previous Friday close) for the same four instruments. Omit what cannot be confirmed.
+
+The app shows a Sunday edition whenever `weekly` is present:
+- Masthead "The Sunday Brief" with "Week of <range>", a slightly different accent so it feels special.
+- "The week in review" (from `weekly.review`) before the daily news, "The week ahead" (from `weekly.ahead`, as a dated list with days until), and the weekly markets strip in place of the daily one (daily strip if weekly markets are empty).
+- "Your week" panel computed live from his data for the last 7 days (Monday to Sunday ending yesterday): gym sessions against the weekly target, days protein target met, average habit completion, CFA hours, study hours, total spend (own share) against 7 times the daily budget, 7-day average weight and change from the week before. Omit metrics without data.
+- Daily stories still appear (shorter section "Today's news").
+- The Today card says "The Sunday Brief" on Sundays.
+- Print/PDF: Sunday edition may use up to TWO A4 pages; weekday editions stay one page.
