@@ -27,3 +27,8 @@ Shape of every `meta/agent-<key>` record (collection `meta`, id `agent-<key>`):
 - Revise suggestions in `proposals` items: `{"kind":"topic","course":"<id or name>","t":"...","why":"..."}` and `{"kind":"case","course":"...","name":"...","point":"one-line holding","topic":"optional topic title","why":"..."}`.
 
 Other agents name their proposals records `<agent>-<date>` (health-, sunday-, monthend-, cfa-, journal-, scribe-, outlook-) so they never count as the Wispr logger. The morning paper is not a proposal: it writes `meta` records with ids `paper-YYYY-MM-DD`, which the Wispr logger never reads. Item formats for the logger are in `docs/WISPR_ITEMS.md`.
+
+
+## Health check (since 19 Nov 2026)
+
+The health check no longer uses Claude. The database function `public.ld_health()` (app/cloud/7-health-check.sql) runs daily at 7:07 AM India time via pg_cron job `ld-health`, writes `meta/agent-health`, and writes `proposals/health-YYYY-MM-DD` only when something is wrong. The `remind` function sends one push notification ("Dashboard needs a look") the same morning when `agent-health.ok` is false. The old Claude scheduled task "life dashbaord: Health checkup" should be paused or deleted.

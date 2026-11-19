@@ -191,6 +191,14 @@ Deno.serve(async (req) => {
   (subs ?? []).forEach((s) => (byUser[s.user_id] = byUser[s.user_id] ?? []).push(s));
   let sent = 0;
   for (const uid of Object.keys(byUser)) {
+    // health alert: one push a day when the database health check (public.ld_health, 7:07 AM) found problems
+    const { data: h } = await sb.from("records").select("flat").eq("user_id", uid).eq("col", "meta").eq("id", "agent-health").maybeSingle();
+    if (h && h.flat && h.flat.ok === false && Date.now() - Number(h.flat.at) < 6 * 3600e3) {
+      const { error } = await sb.from("push_log").insert({ user_id: uid, key: "health-" + new Date(Number(h.flat.at)).toISOString().slice(0, 10) });
+      if (!error) for (const s of byUser[uid]) {
+        try { await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: "Dashboard needs a look", body: String(h.flat.summary || "A background job has a problem."), tag: "health" })); sent++; } catch (_e) { /* reminders loop below cleans dead subscriptions */ }
+      }
+    }
     const { data: m } = await sb.from("records").select("flat").eq("user_id", uid).eq("col", "meta").eq("id", "reminders").maybeSingle();
     const sched = m ? unflat(m.flat).s : null;
     if (!sched || !sched.on) continue;
