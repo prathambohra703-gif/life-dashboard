@@ -109,7 +109,7 @@ async def main():
     await ev("LD.write('proposals','setup-1',{at:Date.now(),items:[{kind:'course',name:'Sample Course A',short:'SCA'},{kind:'deadline',title:'SCA: Sample exam',date:'2027-04-20',k:'Exam',course:'Sample Course A'},{kind:'todo',title:'Unrelated todo'}]})");await p.wait_for_timeout(300)
     oldname=await ev("semNow().name");oldn=await ev("semNow().courses.length")
     await p.click('#st-semwiz');await p.wait_for_timeout(300)
-    ok('wizard step 1: prefilled name and archive explanation',await ev("document.querySelector('#layer input[name=name]').value==='Semester 8 · Spring 2027'&&/archives/.test(document.getElementById('layer').textContent)&&/Step 1 of 3/.test(document.getElementById('layer').textContent)"))
+    ok('wizard step 1: prefilled name and archive explanation',await ev("document.querySelector('#layer input[name=name]').value==='Semester 8 · Spring 2027'&&/Archive .* with its .* course.*Your new semester starts empty/.test(document.getElementById('layer').textContent)&&/Step 1 of 3/.test(document.getElementById('layer').textContent)"))
     await p.click('#layer button[type=submit]');await p.wait_for_timeout(500)
     arch=await ev("(C().semArchive||[]).map(a=>({n:a.name,c:a.courses.length}))")
     ok('wizard archives the current semester with its courses (nothing deleted)',len(arch)==1 and arch[0]['n']==oldname and arch[0]['c']==oldn and await ev("semNow().name")=='Semester 8 · Spring 2027' and await ev("semNow().courses.length")==0,arch)

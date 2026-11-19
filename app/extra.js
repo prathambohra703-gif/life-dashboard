@@ -91,20 +91,52 @@ function applySemester(){
 }
 const _render=render;render=function(){try{applySemester()}catch(e){console.error(e)}try{if(state.mm==='poker'&&examOn(todayStr()))state.mm='spend'}catch(e){}_render();try{remPublish()}catch(e){}try{calPublish()}catch(e){}try{allowSeed()}catch(e){}try{agentDot()}catch(e){}};
 const KINDS=['Exam','Test','Submission','Presentation','Interviews','Task'];
-function semSheet(){
+function semSheet(preC){
   XS.wiz=null;
   const sm=semNow(),cs=sm.courses||[],its=(sm.items||[]).slice().sort((a,b)=>(a.d||'9999')<(b.d||'9999')?-1:1);
   const mile=k=>((sm.miles||[]).find(m=>k.test(m.t))||{}).d||'';
   sheet('<h2>Semester setup</h2><div class="stack">'+
-   '<form data-xform="semname" class="row"><input type="text" name="name" value="'+esc(sm.name||'')+'" aria-label="Semester name"><button class="btn sm" type="submit">Rename</button></form>'+
+   '<form data-xform="semname" class="row"><input type="text" name="name" value="'+esc(sm.name||'')+'" aria-label="Semester name"><button class="btn sm" type="submit">Save name</button></form>'+
    '<div><div class="lbl" style="margin-bottom:6px">Courses</div>'+(cs.length?cs.map(c=>'<div class="lookrow"><b>'+esc(c.name)+(c.short&&c.short!==c.name?' <span class="faint">· '+esc(c.short)+'</span>':'')+'</b><button class="btn sm ghost" data-x="semcdel" data-id="'+esc(c.id)+'" aria-label="Remove '+esc(c.name)+'">Remove</button></div>').join(''):'<div class="empty">No courses yet. Add this semester’s courses below.</div>')+
    '<form data-xform="semcadd" class="row wrap" style="margin-top:8px"><input type="text" name="name" placeholder="Course name" required style="flex:2;min-width:160px"><input type="text" name="short" placeholder="Short name" style="flex:1;min-width:100px"><button class="btn sm pri" type="submit">Add course</button></form></div>'+
    '<div><div class="lbl" style="margin-bottom:6px">Assessments and exams</div>'+(its.length?'<div class="list">'+its.map(a=>'<div class="li"><div class="m"><b>'+esc(a.t)+'</b><span>'+esc(COURSES[a.c]||'')+' · '+esc(a.k)+' · '+(a.d?dlabel(a.d):'date to be set')+'</span></div><button class="x" data-x="semidel" data-id="'+esc(a.id)+'" aria-label="Remove '+esc(a.t)+'">×</button></div>').join('')+'</div>':'<div class="empty">None yet.</div>')+
-   (cs.length?'<form data-xform="semiadd" class="fgrid" style="margin-top:8px"><label class="fld"><span>Course</span><select name="c">'+cs.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.short||c.name)+'</option>').join('')+'</select></label><label class="fld"><span>Title</span><input type="text" name="t" required></label><label class="fld"><span>Date</span><input type="date" name="d"></label><label class="fld"><span>Kind</span><select name="k">'+KINDS.map(k=>'<option>'+k+'</option>').join('')+'</select></label><button class="btn sm pri" type="submit" style="align-self:end">Add</button></form>':'')+'</div>'+
+   (cs.length?'<form data-xform="semiadd" id="semiadd-form" class="fgrid" style="margin-top:8px"><label class="fld"><span>Course</span><select name="c">'+cs.map(c=>'<option value="'+esc(c.id)+'"'+(c.id===preC?' selected':'')+'>'+esc(c.short||c.name)+'</option>').join('')+'</select></label><label class="fld"><span>Title</span><input type="text" name="t" required></label><label class="fld"><span>Date</span><input type="date" name="d"></label><label class="fld"><span>Kind</span><select name="k">'+KINDS.map(k=>'<option>'+k+'</option>').join('')+'</select></label><button class="btn sm pri" type="submit" style="align-self:end">Add</button></form>':'')+'</div>'+
    '<form data-xform="semmiles" class="fgrid"><label class="fld"><span>Classes end</span><input type="date" name="ce" value="'+mile(/classes end/i)+'"></label><label class="fld"><span>Exams begin</span><input type="date" name="eb" value="'+mile(/exams begin/i)+'"></label><label class="fld"><span>Exams end</span><input type="date" name="ee" value="'+mile(/exams end/i)+'"></label><button class="btn sm" type="submit" style="align-self:end">Save dates</button></form>'+
-   '<div class="sep" style="margin:4px 0"></div><p class="faint" style="font-size:12px;margin:0">Starting a new semester keeps this one in an archive, with your marks and history, and gives you an empty course list to fill in.</p>'+
-   '<form data-xform="semnew" class="row wrap"><input type="text" name="name" placeholder="New semester name, e.g. Semester 8 · Spring 2027" required style="flex:1;min-width:200px"><button class="btn sm" type="submit">Start new semester</button></form>'+
+   '<div class="sep" style="margin:4px 0"></div><p class="faint" style="font-size:12px;margin:0">Only for when the term is over. Starting a new semester archives this one, with its marks and history, and gives you an empty course list. You will be asked to confirm first. To add courses, use Add course above.</p>'+
+   '<form data-xform="semask" class="row wrap"><input type="text" name="name" placeholder="New semester name, e.g. Semester 8 · Spring 2027" required style="flex:1;min-width:200px"><button class="btn sm" type="submit">Start new semester…</button></form>'+
+   semPastHtml()+
    '<button class="btn pri" data-act="sheetclose">Done</button></div>');
+  if(preC){const f=xq('#semiadd-form');if(f){try{f.scrollIntoView({block:'center'})}catch(e){}const i=xq('input[name=t]',f);if(i)try{i.focus({preventScroll:true})}catch(e){}}}
+}
+/* ---------- semester archive: counts, confirmation, restore ---------- */
+const semMarks=()=>{const m=C().L_marks;return Array.isArray(m)?m:LL('marks')};
+const semRevHas=r=>!!r&&Object.keys(r).some(k=>{const x=r[k]||{};return (x.topics||[]).length||(x.cases||[]).length||(x.notes||[]).length});
+const semEmpty=sm=>!(sm.courses||[]).length&&!(sm.items||[]).length&&!(sm.miles||[]).length&&!semMarks().length&&!semRevHas(C().revise);
+const semOpen=()=>/Semester setup/.test((xq('#layer h2')||{}).textContent||'');
+const semPl=(n,w)=>n+' '+w+(n===1?'':'s');
+const semWarn=sm=>sm.createdAt===todayStr()||((sm.courses||[]).length>0&&!(sm.items||[]).length);
+function semConfirmBody(sm,name,wiz){
+  const n=semMarks().length;
+  return '<p class="xnote" id="semconf-text" style="margin:0">Archive <b>'+esc(sm.name||'this semester')+'</b> with its '+semPl((sm.courses||[]).length,'course')+', '+semPl((sm.items||[]).length,'assessment')+' and '+semPl(n,'mark')+'? Your new semester starts empty.</p>'+
+   (semWarn(sm)?'<p class="xnote" id="semconf-warn" style="margin:0"><b>You set up this semester today.</b> To add courses, use Add course above — you don’t need to start a new semester.</p>':'')+
+   '<form data-xform="semnew"'+(wiz?' data-wiz="1"':'')+' class="stack"><label class="fld"><span>New semester name</span><input type="text" name="name" value="'+esc(name)+'" required autocomplete="off"></label><div class="row"><button class="btn pri" type="submit">'+(wiz?'Archive and continue':'Archive and start')+'</button><button class="btn" type="button" data-x="'+(wiz?'wizdone':'semcancel')+'">Cancel</button></div></form>';
+}
+function semConfirmSheet(name){sheet('<h2>Start new semester</h2><div class="stack">'+semConfirmBody(semNow(),name,false)+'</div>')}
+function semPastHtml(){
+  const a=C().semArchive||[];if(!a.length)return '';
+  return '<div id="sem-past"><div class="lbl" style="margin-bottom:6px">Past semesters</div>'+a.map((e,i)=>({e,i})).reverse().map(({e,i})=>'<div class="lookrow"><span><b>'+esc(e.name||'Semester')+'</b><span class="faint" style="display:block;font-size:12px">'+semPl((e.courses||[]).length,'course')+' · '+semPl((e.items||[]).length,'assessment')+' · '+semPl((e.marks||[]).length,'mark')+(e.archivedAt?' · archived '+esc(dlabel(e.archivedAt)):'')+'</span></span><button class="btn sm" data-x="semrestore" data-i="'+i+'">Restore</button></div>').join('')+'</div>';
+}
+/* swap: current semester goes to the archive (unless empty), the chosen entry becomes current with its marks and revision data */
+function semRestore(i){
+  const arch=(C().semArchive||[]).slice(),e=arch[i];if(!e)return;
+  const cur=semNow(),prev={sem:cur,semArchive:(C().semArchive||[]).slice(),L_marks:semMarks().slice()},rv=C().revise;if(rv)prev.revise=rv;
+  const keep=!semEmpty(cur);
+  arch.splice(i,1);
+  if(keep){const x={...cur,archivedAt:todayStr(),marks:semMarks().slice()};if(rv&&semRevHas(rv))x.revise=rv;arch.push(x)}
+  const {archivedAt,marks,revise,...sm}=e,patch={sem:sm,semArchive:arch,L_marks:marks||[]};
+  if(revise)patch.revise=revise;else if(rv)patch.revise=Object.fromEntries(Object.keys(rv).map(k=>[k,{topics:[],cases:[],notes:[]}]));
+  saveCfg(patch);applySemester();render();
+  toast('Restored '+(sm.name||'semester')+(keep?'. The one you had is in Past semesters.':''),{undo:()=>{saveCfg(prev);applySemester();render();if(semOpen())semSheet()}});
 }
 const semPut=sm=>{saveCfg({sem:sm});applySemester();render()};
 const semSave=sm=>{semPut(sm);XS.wiz?wizSheet(XS.wiz):semSheet()};
@@ -275,8 +307,7 @@ function wizSheet(step){
   const sm=semNow(),dots='<p class="faint" style="margin:0 0 var(--s3);font-size:12px" id="wiz-step">Step '+step+' of 3</p>';
   let body='';
   if(step===1){
-    body='<p class="xnote" style="margin:0">Starting a new semester archives <b>'+esc(sm.name||'this semester')+'</b> with its marks and history. Nothing is deleted, and the new semester starts with an empty course list.</p>'+
-      '<form data-xform="semnew" data-wiz="1" class="stack"><label class="fld"><span>New semester name</span><input type="text" name="name" value="'+esc(WIZ_NAME)+'" required autocomplete="off"></label><div class="row"><button class="btn pri" type="submit">Archive and continue</button><button class="btn" type="button" data-x="wizdone">Cancel</button></div></form>';
+    body=semConfirmBody(sm,WIZ_NAME,true);
   }else if(step===2){
     const L=wizItems(),cs=sm.courses||[];
     body='<h3 style="margin:0;font-size:17px">Waiting for the Scribe’s setup</h3>';
@@ -668,6 +699,9 @@ document.addEventListener('click',async ev=>{
   if(a==='cloud'){cloudSheet();return}
   if(a==='rem'){remSheet();return}
   if(a==='sem'){semSheet();return}
+  if(a==='semcancel'){semSheet();return}
+  if(a==='semrestore'){const was=semOpen();semRestore(+t.dataset.i);if(was)semSheet();return}
+  if(a==='semadd'){semSheet(t.dataset.id);return}
   if(a==='semwiz'){XS.wiz=1;wizSheet(1);return}
   if(a==='wizall'){wizAll();return}
   if(a==='wizstep'){wizSheet(+t.dataset.v);return}
@@ -722,7 +756,15 @@ document.addEventListener('submit',async ev=>{
   if(k==='semcadd'){const name=v('name');if(!name)return;let id=slug(name).slice(0,12)||'c';while(sm.courses.some(c=>c.id===id))id+='x';semSave({...sm,courses:[...sm.courses,{id,name,short:v('short')||name}]});return}
   if(k==='semiadd'){const t=v('t');if(!t)return;const d=v('d');semSave({...sm,items:[...(sm.items||[]),{id:v('c')+'-'+uid(),c:v('c'),t,d:d||null,k:v('k'),...(d?{}:{tbc:true})}]});return}
   if(k==='semmiles'){const keep=(sm.miles||[]).filter(m=>!/classes end|exams begin|exams end/i.test(m.t)),add=[];if(v('ce'))add.push({d:v('ce'),t:'Classes end'});if(v('eb'))add.push({d:v('eb'),t:'End-semester exams begin'});if(v('ee'))add.push({d:v('ee'),t:'End-semester exams end'});semSave({...sm,miles:[...keep,...add].sort((a,b)=>a.d<b.d?-1:1)});return}
-  if(k==='semnew'){const name=v('name');if(!name)return;if(f.dataset.wiz)XS.wiz=2;const arch=(C().semArchive||[]).concat([{...sm,archivedAt:todayStr()}]);saveCfg({semArchive:arch});semSave({name,courses:[],items:[],miles:[]});toast('New semester started. The old one is archived.',{noUndo:true});return}
+  if(k==='semask'){if(v('name'))semConfirmSheet(v('name'));return}
+  if(k==='semnew'){const name=v('name');if(!name)return;if(f.dataset.wiz)XS.wiz=2;
+    const prev={sem:sm,semArchive:(C().semArchive||[]).slice(),L_marks:semMarks().slice()},rv=C().revise;if(rv)prev.revise=rv;
+    /* one write: archive entry (with marks and revision data) + empty new term, so nothing can be half done */
+    const ent={...sm,archivedAt:todayStr(),marks:semMarks().slice()};if(rv&&semRevHas(rv))ent.revise=rv;
+    const patch={semArchive:prev.semArchive.concat([ent]),sem:{name,courses:[],items:[],miles:[],createdAt:todayStr()},L_marks:[]};
+    if(rv)patch.revise=Object.fromEntries(Object.keys(rv).map(k=>[k,{topics:[],cases:[],notes:[]}]));
+    saveCfg(patch);applySemester();f.dataset.wiz?wizSheet(2):semSheet();render();
+    toast('New semester started. The old one is archived.',{undo:()=>{saveCfg(prev);applySemester();render();if(XS.wiz){XS.wiz=1;wizSheet(1)}else if(semOpen())semSheet()}});return}
   if(k==='rem'){
     const on=n=>fd.get(n)==='on',tm=(n,d)=>/^\d{2}:\d{2}$/.test(v(n))?v(n):d,prog=remProg(),r=remCfg(prog);
     const ev2=clamp(+v('waterEv')||120,30,360);

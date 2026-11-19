@@ -137,10 +137,33 @@
     return '<section class="card quiet" id="st-markers"><h2>Semester markers</h2>'+(m.length?'<div class="list">'+m.map(function(x){return '<div class="li"><div class="m"><b>'+esc(x.t)+'</b><span>'+dlabel(x.d)+'</span></div><span class="days">'+(diff(x.d,t)<=0?'Now':diff(x.d,t)+' d')+'</span></div>'}).join('')+'</div>':emptyState('No upcoming markers.'))+
       '<div class="row" style="margin-top:var(--s3)"><button class="btn" data-x="sem" id="st-semsetup">Semester setup</button><button class="btn" data-x="semwiz" id="st-semwiz">Start new semester</button></div></section>';
   }
+  /* every current course, including ones with no assessments yet */
+  function coursesCard(){
+    var ids=Object.keys(COURSES),all=acadList(),t=t0();
+    if(!ids.length)return '<section class="card" id="st-courses"><h2>Courses</h2>'+emptyState('No courses yet.')+'<div class="row" style="margin-top:var(--s3)"><button class="btn sm pri" data-x="sem">Add course</button></div></section>';
+    return '<section class="card" id="st-courses"><h2>Courses<small>'+ids.length+' this semester</small></h2><div class="list">'+ids.map(function(id){
+      var l=all.filter(function(a){return a.c===id}),nx=l.filter(function(a){return a.d&&!a.done&&diff(a.d,t)>=0}).sort(function(a,b){return a.d<b.d?-1:1})[0];
+      var sub=!l.length?'No assessments yet':l.length+' assessment'+(l.length===1?'':'s')+(nx?' · next '+dlabel(nx.d):'');
+      return '<div class="li" data-course="'+esc(id)+'"><div class="m"><b>'+esc(COURSES[id])+'</b><span>'+esc(sub)+'</span></div>'+(l.length?'':'<button class="btn sm" data-x="semadd" data-id="'+esc(id)+'" aria-label="Add an assessment for '+esc(COURSES[id])+'">Add</button>')+'</div>';
+    }).join('')+'</div></section>';
+  }
+  /* marks: current courses up front, earlier semesters collapsed and never deleted */
+  function marksCard2(){
+    var all=LL('marks').slice().sort(function(a,b){return a.date<b.date?1:-1}),pc=function(m){return Math.round(m.got/m.of*100)};
+    var cur={};Object.keys(COURSES).forEach(function(id){cur[COURSES[id]]=1;cur[cshort(id)]=1});
+    var M=all.filter(function(m){return cur[m.course]}),E=all.filter(function(m){return !cur[m.course]});
+    var by={};M.forEach(function(m){(by[m.course]=by[m.course]||[]).push(pc(m))});
+    var row=function(m){return lrow('marks',m,m.name,esc(m.course)+' · '+dlabel(m.date),'<span class="mono">'+m.got+' / '+m.of+' · '+pc(m)+'%</span>')};
+    return '<section class="card" id="st-marks"><h2>Marks<small>'+(M.length?'average '+Math.round(sum(M,pc)/M.length)+'%':'none yet')+'</small></h2>'+
+      (M.length?'<div class="chips" style="margin-bottom:8px">'+Object.keys(by).map(function(c){return '<span class="pill">'+esc(cshort(Object.keys(COURSES).find(function(k){return COURSES[k]===c||cshort(k)===c})||c))+' '+Math.round(sum(by[c],function(x){return x})/by[c].length)+'%</span>'}).join('')+'</div><div class="list">'+M.slice(0,6).map(row).join('')+'</div>':'<div class="empty">'+(E.length?'No marks yet for this semester.':'Log your marks as they come back to see how each course is going.')+'</div>')+
+      addBtn('marks')+
+      (E.length?'<details class="st-more" id="st-marks-old" style="margin-top:var(--s3)"><summary class="btn ghost sm">Earlier semesters ('+E.length+')</summary><div class="list" style="margin-top:var(--s2)">'+E.map(row).join('')+'</div></details>':'')+'</section>';
+  }
   function viewExams(){
     var ex='';try{ex=examPlanCard()}catch(e){}
-    var mk='';try{mk=marksCard()}catch(e){}
-    return courseChips()+'<div class="st-stack st-pad">'+ex+deadlines()+markers()+mk+'</div>';
+    var mk='';try{mk=marksCard2()}catch(e){}
+    var cc='';try{cc=coursesCard()}catch(e){}
+    return courseChips()+'<div class="st-stack st-pad">'+ex+deadlines()+cc+markers()+mk+'</div>';
   }
 
   function viewCfa(){
@@ -491,16 +514,5 @@
     else if(k==='rvcase'){var n=v('name');if(!n)return;rvSave(c,function(r){var o={id:uid(),name:n.slice(0,160),point:v('point').slice(0,300)};if(v('topicId'))o.topicId=v('topicId');r.cases.push(o)});rvFocus('form[data-form=rvcase] input[name=name]')}
     else if(k==='rvnote'){var ti=v('title');if(!ti)return;rvSave(c,function(r){r.notes.push({id:uid(),title:ti.slice(0,160),ref:v('ref').slice(0,500)})});rvFocus('form[data-form=rvnote] input[name=title]')}
   });
-  /* a new semester archives cfg.sem; carry the revision data into that archive entry and start the new term clean */
-  document.addEventListener('submit',function(e){
-    var f=e.target.closest&&e.target.closest('[data-xform="semnew"]');if(!f)return;
-    var n0=(C().semArchive||[]).length;
-    setTimeout(function(){
-      var rv=C().revise,arch=C().semArchive||[];
-      if(!rv||!Object.keys(rv).length||arch.length<=n0)return;
-      var a=arch.slice();a[a.length-1]=Object.assign({},a[a.length-1],{revise:rv});
-      var blank={};Object.keys(rv).forEach(function(k){blank[k]={topics:[],cases:[],notes:[]}});
-      saveCfg({semArchive:a,revise:blank});
-    },120);
-  },true);
+  /* the semnew handler in extra.js archives courses, assessments, marks and revision data in one write */
 })();
