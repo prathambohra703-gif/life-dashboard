@@ -5,7 +5,9 @@ The agent reads the Wispr notes twice a day and writes ONE `proposals` record pe
     {"date":"2026-11-30","auto":true,"run":"14:00","at":1764500000000,"items":[ ... ]}
 
 - Record id: `<date>-<HHMM>`, for example `2026-11-30-1400`. `run` is `"14:00"` or `"00:30"`. `at` is the finish time in ms. `auto:true` is required, on the record AND on every item: the Drive inbox script passes only `date` and `items`, so the app also treats a record as automatic when its items carry `"auto":true`. Without it the record is the old manual Nightly review.
-- The app saves every valid item at once, shows it under "Added from Wispr" with Undo, and turns anything unclear into a question. Do not send items you are unsure about as guesses: send an `ask`.
+- The app saves every valid non-money item at once and lists it in a compact strip, "From Wispr · N logged", with a tick (confirm, hides it) and Undo; "Keep all" confirms everything, and items auto-confirm after 3 days. Confirmed state is kept in the `meta/wispr-applied` register (`ok:true`), so it stays hidden on every device. The strip disappears when nothing is unconfirmed.
+- Money kinds (`expense`, `income`, `repay`, `paid`, `poker`, and any `ask` whose options contain one) are NEVER applied automatically, even with `auto:true`. They wait in a "To confirm" card with Approve, Edit (amount, account, category, note, split) and Dismiss. Approve applies exactly once (recorded in the register) and the item disappears; Dismiss records it as skipped. Tapping a money option of an `ask` is the approval.
+- The app turns anything unclear into a question. Do not send items you are unsure about as guesses: send an `ask`.
 
 ## src and date (every item)
 
@@ -21,7 +23,7 @@ The agent reads the Wispr notes twice a day and writes ONE `proposals` record pe
 | meal | name, kcal, p, c?, f?, portion? | `{"src":"n1#1","kind":"meal","name":"Paneer wrap","kcal":420,"p":24,"c":40,"f":16}` |
 | sets | exercise, sets:[{w,r}] | `{"src":"n1#2","kind":"sets","exercise":"bench press","sets":[{"w":40,"r":8},{"w":40,"r":8},{"w":40,"r":7}]}` |
 | cardio | min | `{"src":"n1#3","kind":"cardio","min":20}` |
-| habit | key, done | `{"src":"n1#4","kind":"habit","key":"creatine","done":true}` (keys: mobility, creatine, gym, alcohol, clean) |
+| habit | key, done | `{"src":"n1#4","kind":"habit","key":"creatine","done":true}` (keys: mobility, creatine, gym, alcohol, clean; a name like "creatine" or "no alcohol" is matched to the habit's label, and an unknown habit becomes a question. `gym` done:true, and any `cardio` or `sets` item on a training day, also mark that day's session done in Train; Undo reverses both) |
 | weight | kg | `{"src":"n1#5","kind":"weight","kg":68.4}` |
 | steps | n | `{"src":"n1#6","kind":"steps","n":8200}` |
 | waist | cm | `{"src":"n1#7","kind":"waist","cm":80}` |

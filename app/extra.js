@@ -19,7 +19,7 @@ function xWrap(v,html){
     state.bodyView=v;
     return '<div class="seg" role="group" aria-label="Body section">'+[['train','Train'],['fuel','Fuel']].map(([k,l])=>'<button data-act="tab" data-v="'+k+'" aria-pressed="'+(v===k)+'">'+l+'</button>').join('')+'</div>'+html;
   }
-  if(v==='today'){const p=wisprCard()+propsCard()+cutCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
+  if(v==='today'){const p=wisprCard()+wlConfirmCard()+propsCard()+cutCard()+setupCard();if(p){const mark='<div class="grid w2" style="margin-top:14px">';const i=html.indexOf(mark);return i<0?p+html:html.slice(0,i)+p+html.slice(i)}}
   return html;
 }
 
@@ -1085,6 +1085,20 @@ function wlListPut(cx,l,row){
   const list=LL(l).slice(),i=list.findIndex(x=>x.id===row.id);
   if(i>=0)list[i]=row;else list.push(row);LSAVE(l,list);
 }
+function wlHabitList(d){try{return habits(d).items.filter(i=>!i.type).map(i=>({k:i.k,label:String(i.label||i.k)}))}catch(e){return ['mobility','creatine','gym','alcohol','clean'].map(k=>({k:k,label:k}))}}
+/* the habit key for what Wispr said: the exact key first, then the habit's name ("creatine" inside "Creatine 5 g"); '' if none */
+function wlHabitMatch(v,d){
+  const q=String(v==null?'':v).trim().toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();if(!q)return '';
+  const L=wlHabitList(d);if(L.some(h=>h.k===q))return q;
+  const nm=h=>String(h.label).toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+  const m=L.find(h=>nm(h)===q)||L.find(h=>(' '+nm(h)+' ').includes(' '+q+' '))||(q.length>3?L.find(h=>nm(h).includes(q)):null);
+  return m?m.k:'';
+}
+/* a lift or cardio session on a training day also ticks that day's session in Train (Train's own control is the gym habit) */
+function wlGymTick(cx,date){
+  try{if(PLAN[DOW[parse(date).getDay()]].name==='Rest')return}catch(e){}
+  if(!(day(date).habits||{}).gym)wlDay(cx,date,{habits:{gym:true}});
+}
 function wlHabitKeys(d){try{return habits(d).items.filter(i=>!i.type).map(i=>i.k)}catch(e){return ['mobility','creatine','gym','alcohol','clean']}}
 /* validate an item and return {err} | {ask:{question,options}} | {do(cx)} */
 function wlPlan(it,src,date){
@@ -1118,10 +1132,10 @@ function wlPlan(it,src,date){
     return D(cx=>{
       const arr=((day(date).lifts||{})[lid]||[]).slice();
       if(!arr.some(x=>x&&x.src===sk))dbSetDay(date,{lifts:{[lid]:arr.concat(sets.map(s=>({w:s.w,r:s.r,src:sk})))}});
-      cx.sets.push({d:date,slug:lid,s:sk});
+      cx.sets.push({d:date,slug:lid,s:sk});wlGymTick(cx,date);
     });
   }
-  if(k==='cardio')return dinc('cardioMin',wlNum(it.min),'how many minutes of cardio?');
+  if(k==='cardio'){const pl=dinc('cardioMin',wlNum(it.min),'how many minutes of cardio?');if(!pl.do)return pl;return D(cx=>{pl.do(cx);wlGymTick(cx,date)})}
   if(k==='cfa')return dinc('cfaMin',wlNum(it.min),'how many minutes of CFA?');
   if(k==='study'){
     const e=nd(),m=wlNum(it.min);if(e)return E(e);if(!(m>=1&&m<=1440))return E('how many minutes of study?');
@@ -1129,9 +1143,14 @@ function wlPlan(it,src,date){
     return D(cx=>{const dd=day(date),patch={studyMin:(+dd.studyMin||0)+m};if(c)patch.courseMin={[c]:(+(dd.courseMin||{})[c]||0)+m};wlInc(cx,sk,date,patch)});
   }
   if(k==='habit'){
-    const e=nd(),key=String(it.key||'').trim().toLowerCase();if(e)return E(e);
-    if(!wlHabitKeys(date).includes(key))return E('which habit is "'+(it.key||'')+'"?');
-    return D(cx=>wlDay(cx,date,{habits:{[key]:it.done!==false&&it.done!=='false'}}));
+    const e=nd();if(e)return E(e);
+    const key=wlHabitMatch(it.key,date);
+    if(!key){
+      const opts=wlHabitList(date).map(h=>({label:h.label,item:{kind:'habit',key:h.k,done:it.done,date}}));opts.push({label:'Skip',item:null});
+      return {ask:{question:'Which habit is "'+(it.key||'')+'"?',options:opts}};
+    }
+    const on=it.done!==false&&it.done!=='false';
+    return {it:{...it,key},do:cx=>wlDay(cx,date,{habits:{[key]:on}})};
   }
   if(k==='weight')return dset('weight',wlNum(it.kg),v=>v>=30&&v<=250,'what was the weight in kg?');
   if(k==='steps')return dset('steps',Math.round(wlNum(it.n)),v=>v>=0&&v<=100000,'how many steps?');
@@ -1201,13 +1220,15 @@ function wlApplyOne(it,src,date){
   if(!it||typeof it!=='object')return {err:'empty item'};
   const pl=wlPlan(it,src,date);if(!pl.do)return pl;
   const cx=wlCx();pl.do(cx);
-  return {ok:true,rec:{at:Date.now(),d:date,it,refs:cx.refs,dprev:cx.dprev,sets:cx.sets,cprev:cx.cprev}};
+  return {ok:true,rec:{at:Date.now(),d:date,it:pl.it||it,refs:cx.refs,dprev:cx.dprev,sets:cx.sets,cprev:cx.cprev}};
 }
 function wlReady(){
   if(!window.LD||!LD.ready||!state.db)return false;
   if(!['entries','days','config','todos','academics'].every(n=>state.seen[n]))return false;
   const st=LD.status();return st.mode==='local'||st.last>0;
 }
+const WL_MONEY=['expense','income','repay','paid','poker'];
+const wlIsMoney=it=>!!it&&(WL_MONEY.includes(it.kind)||(it.kind==='ask'&&Array.isArray(it.options)&&it.options.some(o=>o&&o.item&&WL_MONEY.includes(o.item.kind))));
 const wlAuto=()=>XS.props.filter(p=>wlIsAuto(p));
 function wlRun(){
   if(XS.wlBusy||!wlAuto().length||!wlReady())return;XS.wlBusy=true;
@@ -1216,7 +1237,7 @@ function wlRun(){
 function wlRunNow(){
   const reg=wlReg(),patch={};let n=0;
   wlAuto().forEach(p=>(p.items||[]).forEach((it,i)=>{
-    if(!it||it.kind==='ask')return;
+    if(!it||it.kind==='ask'||wlIsMoney(it))return;
     const src=wlSrc(p,it,i),k=wlKey(src);if(reg[k]||patch[k])return;
     const r=wlApplyOne(it,src,wlDate(it,p));if(r.ok){patch[k]=r.rec;n++}
   }));
@@ -1224,22 +1245,22 @@ function wlRunNow(){
 }
 setInterval(()=>{try{wlRun()}catch(e){console.error(e)}},3000);
 LD.opened.then(()=>{LD.onCol('proposals',()=>setTimeout(()=>{try{wlRun()}catch(e){console.error(e)}},50));LD.onCol('meta',()=>setTimeout(()=>{try{wlRun();scheduleRender()}catch(e){console.error(e)}},50));LD.onStatus(()=>{try{wlRun()}catch(e){}})});
-const wlRecent=p=>{const t=+p.at||Date.parse((p.date||'')+'T12:00:00+05:30')||Date.now();return Date.now()-t<48*36e5};
+const wlRecent=(p,days)=>{const t=+p.at||Date.parse((p.date||'')+'T12:00:00+05:30')||Date.now();return Date.now()-t<(days||2)*24*36e5};
 /* what still waits on him */
 function wlQuestions(){
   const out=[],reg=wlReg(),seen=new Set();
-  wlAuto().forEach(p=>{if(!wlRecent(p))return;(p.items||[]).forEach((it,i)=>{
-    if(!it)return;const src=wlSrc(p,it,i),k=wlKey(src);if(reg[k]||seen.has(k))return;seen.add(k);
+  wlAuto().forEach(p=>{(p.items||[]).forEach((it,i)=>{
+    if(!it)return;if(!(wlIsMoney(it)?wlRecent(p,30):wlRecent(p)))return;const src=wlSrc(p,it,i),k=wlKey(src);if(reg[k]||seen.has(k))return;seen.add(k);
     const date=wlDate(it,p);
-    if(it.kind==='ask'){out.push({k,src,date,it,ask:{question:String(it.question||'Which one?'),options:Array.isArray(it.options)?it.options:[]}});return}
+    if(it.kind==='ask'){out.push({k,src,date,it,money:wlIsMoney(it),ask:{question:String(it.question||'Which one?'),options:Array.isArray(it.options)?it.options:[]}});return}
     const pl=wlPlan(it,src,date);
-    if(pl.err)out.push({k,src,date,it,bad:pl.err});else if(pl.ask)out.push({k,src,date,it,ask:pl.ask});
+    if(pl.err)out.push({k,src,date,it,bad:pl.err,money:wlIsMoney(it)});else if(pl.ask)out.push({k,src,date,it,ask:pl.ask});else if(wlIsMoney(it))out.push({k,src,date,it,money:true});
   })});
   return out;
 }
 function wlSaved(){
   const reg=wlReg(),now=Date.now();
-  return Object.keys(reg).map(k=>({k,rec:reg[k]})).filter(x=>x.rec&&x.rec.it&&!x.rec.undone&&!x.rec.skipped&&now-(+x.rec.at||0)<48*36e5).sort((a,b)=>(+a.rec.at||0)-(+b.rec.at||0));
+  return Object.keys(reg).map(k=>({k,rec:reg[k]})).filter(x=>x.rec&&x.rec.it&&!x.rec.undone&&!x.rec.skipped&&!x.rec.ok&&now-(+x.rec.at||0)<3*24*36e5).sort((a,b)=>(+a.rec.at||0)-(+b.rec.at||0));
 }
 function wlSetsText(a){
   const g=[];(a||[]).forEach(s=>{const w=wlNum(s.w),l=g[g.length-1];if(l&&l.w===w)l.r.push(s.r);else g.push({w,r:[s.r]})});
@@ -1251,7 +1272,9 @@ function wlLabel(it){
   if(k==='meal')return wlUp(it.name)+' · '+Math.round(n(it.kcal)||0)+' kcal';
   if(k==='sets')return wlUp(it.exercise)+' '+wlSetsText(it.sets);
   if(k==='cardio')return 'Cardio '+n(it.min)+' min';
-  if(k==='habit')return wlUp(it.key)+(it.done===false||it.done==='false'?' not done':' done');
+  if(k==='habit'){const key=String(it.key||'').toLowerCase(),off=it.done===false||it.done==='false',nm=HSHORT[key]||wlUp(it.key);
+    if(key==='gym')return off?'Gym: workout cleared':'Gym: workout done';
+    return nm+(off?' cleared':' ticked')}
   if(k==='weight')return 'Weight '+n(it.kg)+' kg';
   if(k==='steps')return 'Steps '+(n(it.n)||0).toLocaleString('en-IN');
   if(k==='waist')return 'Waist '+n(it.cm)+' cm';
@@ -1282,26 +1305,23 @@ function wlLabel(it){
   return String(it.kind||'Item');
 }
 const WL_KIND={water:'Water',meal:'Meal',sets:'Lift',cardio:'Cardio',habit:'Habit',weight:'Weight',steps:'Steps',waist:'Waist',wake:'Sleep',bed:'Sleep',mood:'Mood',sleepQ:'Sleep',study:'Study',cfa:'CFA',expense:'Spending',income:'Income',repay:'People',paid:'People',poker:'Poker',todo:'Task',deadline:'Deadline',note:'Note',contact:'Career',intern:'Career'};
+const wlDShort=d=>{try{const x=parse(d);return x.getDate()+' '+MON[x.getMonth()]}catch(e){return ''}};
+/* compact strip: what was logged by itself, each with a tick (keep) and Undo */
 function wisprCard(){
-  const sv=wlSaved(),qs=wlQuestions();
-  if(!sv.length&&!qs.length)return '';
-  const t=todayStr(),hide=!!XS.wHide;
-  const head='<h2>Added from Wispr<small>'+sv.length+' saved'+(qs.length?' · '+qs.length+' need you':'')+'</small></h2>';
-  const tog='<button class="btn sm ghost wi-tog" data-x="wtog" aria-expanded="'+!hide+'">'+(hide?'Show':'Hide')+'</button>';
-  let body='';
-  if(!hide){
-    if(sv.length){
-      body+='<div class="lbl wi-lbl">Saved</div><div class="list">'+sv.slice(0,40).map(({k,rec})=>'<div class="li wi-li"><div class="m"><b>'+esc(wlLabel(rec.it))+'</b>'+(rec.d&&rec.d!==t?'<span>'+esc((WL_KIND[rec.it.kind]||'')+' · '+dlabel(rec.d))+'</span>':'')+'</div><button class="btn sm ghost" data-x="wundo" data-k="'+esc(k)+'" aria-label="Undo '+esc(wlLabel(rec.it))+'">Undo</button></div>').join('')+'</div>';
-      if(sv.length>1)body+='<div class="pr-bulk"><button class="btn sm" data-x="wundoall">Undo all</button></div>';
-    }
-    if(qs.length){
-      body+='<div class="lbl wi-lbl">Needs you</div><div class="list">'+qs.map(q=>{
-        if(q.bad)return '<div class="li pr-li wi-q"><div class="m"><b>Couldn’t save: ‘'+esc(wlLabel(q.it))+'’</b><span>'+esc(q.bad)+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="wedit" data-k="'+esc(q.k)+'">Edit</button><button class="btn sm ghost" data-x="wskip" data-k="'+esc(q.k)+'">Dismiss</button></div></div>';
-        return '<div class="li pr-li wi-q"><div class="m"><b>'+esc(q.ask.question)+'</b></div><div class="pr-acts">'+q.ask.options.map((o,j)=>'<button class="btn sm'+(o&&o.item?'':' ghost')+'" data-x="wopt" data-k="'+esc(q.k)+'" data-o="'+j+'">'+esc(o&&o.label||'Option')+'</button>').join('')+'</div></div>';
-      }).join('')+'</div>';
-    }
-  }
-  return '<section class="card hero wi" style="margin-top:14px" id="wispr"><div class="wi-head">'+head+tog+'</div>'+body+'</section>';
+  const sv=wlSaved();if(!sv.length)return '';
+  const t=todayStr();
+  const row=({k,rec})=>{const lb=wlLabel(rec.it)+(rec.d&&rec.d!==t?' · '+wlDShort(rec.d):'');return '<div class="li wi-li"><div class="m"><b>'+esc(lb)+'</b></div><button class="btn sm ghost" data-x="wok" data-k="'+esc(k)+'" aria-label="Keep '+esc(lb)+'">✓</button><button class="btn sm ghost" data-x="wundo" data-k="'+esc(k)+'" aria-label="Undo '+esc(lb)+'">Undo</button></div>'};
+  return '<section class="card wi wi-strip" style="margin-top:14px" id="wispr"><div class="wi-head"><h2>From Wispr · '+sv.length+' logged</h2>'+(sv.length>1?'<button class="btn sm ghost wi-tog" data-x="wokall">Keep all</button>':'')+'</div><div class="list">'+sv.slice(0,40).map(row).join('')+'</div></section>';
+}
+/* what waits on him: money to approve, things that could not be saved, questions */
+function wlConfirmCard(){
+  const qs=wlQuestions();if(!qs.length)return '';
+  const t=todayStr(),when=q=>q.date&&q.date!==t?' · '+wlDShort(q.date):'';
+  return '<section class="card hero wi" style="margin-top:14px" id="wispr-q"><h2>To confirm<small>'+qs.length+' item'+(qs.length===1?'':'s')+' · money waits for your approval</small></h2><div class="list">'+qs.map(q=>{
+    if(q.bad)return '<div class="li pr-li wi-q"><div class="m"><b>Couldn’t save: ‘'+esc(wlLabel(q.it))+'’</b><span>'+esc(q.bad)+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="wedit" data-k="'+esc(q.k)+'">Edit</button><button class="btn sm ghost" data-x="wskip" data-k="'+esc(q.k)+'">Dismiss</button></div></div>';
+    if(q.ask)return '<div class="li pr-li wi-q"><div class="m"><b>'+esc(q.ask.question)+'</b></div><div class="pr-acts">'+q.ask.options.map((o,j)=>'<button class="btn sm'+(o&&o.item?'':' ghost')+'" data-x="wopt" data-k="'+esc(q.k)+'" data-o="'+j+'">'+esc(o&&o.label||'Option')+'</button>').join('')+'</div></div>';
+    return '<div class="li pr-li wi-q"><div class="m"><b>'+esc(wlLabel(q.it))+'</b><span>'+esc((WL_KIND[q.it.kind]||'Money')+when(q))+'</span></div><div class="pr-acts"><button class="btn sm pri" data-x="wapprove" data-k="'+esc(q.k)+'">Approve</button><button class="btn sm" data-x="wedit" data-k="'+esc(q.k)+'">Edit</button><button class="btn sm ghost" data-x="wskip" data-k="'+esc(q.k)+'">Dismiss</button></div></div>';
+  }).join('')+'</div></section>';
 }
 function wlUndoRec(k,rec){
   (rec.refs||[]).forEach(r=>{
@@ -1314,6 +1334,17 @@ function wlUndoRec(k,rec){
   (rec.dprev||[]).slice().reverse().forEach(x=>dbSetDay(x.d,x.p));
   if(rec.cprev)LSAVE('contacts',LL('contacts').map(x=>x.id===rec.cprev.id?{...x,last:rec.cprev.last}:x));
 }
+function wlConfirm(keys){
+  const reg=wlReg(),patch={};keys.forEach(k=>{const r=reg[k];if(r&&!r.ok)patch[k]={...r,ok:true}});
+  if(Object.keys(patch).length)wlRegPut(patch);scheduleRender();
+}
+function wlApprove(k){
+  const q=wlQuestions().find(x=>x.k===k);if(!q||!q.money||q.bad||q.ask)return;
+  if(wlReg()[k])return;
+  const r=wlApplyOne(q.it,q.src,q.date);
+  if(!r.ok){toast(r.err?'Couldn’t save: '+r.err:'That needs an answer first',{noUndo:true});return}
+  wlRegPut({[k]:{...r.rec,ok:true,approved:true}});scheduleRender();toast('Approved',{noUndo:true});
+}
 function wlUndo(keys){
   const reg=wlReg(),patch={};let n=0;
   keys.forEach(k=>{const rec=reg[k];if(!rec||rec.undone)return;try{wlUndoRec(k,rec)}catch(e){console.error(e)}patch[k]={...rec,undone:true,uat:Date.now()};n++});
@@ -1321,7 +1352,7 @@ function wlUndo(keys){
 }
 const WL_F={water:[['ml','Millilitres','n']],meal:[['name','Name','t'],['kcal','kcal','n'],['p','Protein g','n'],['c','Carbs g','n'],['f','Fat g','n']],sets:[['exercise','Exercise','t']],cardio:[['min','Minutes','n']],habit:[['key','Habit','h']],weight:[['kg','kg','n']],steps:[['n','Steps','n']],waist:[['cm','cm','n']],wake:[['time','Time, HH:MM','t']],bed:[['time','Time, HH:MM','t']],mood:[['v','1 to 5','n']],sleepQ:[['v','1 to 5','n']],study:[['min','Minutes','n'],['course','Course','k']],cfa:[['min','Minutes','n']],expense:[['amount','Amount','n'],['account','Paid from','a'],['category','Category','c'],['note','What for','t']],income:[['amount','Amount','n'],['account','Into','a'],['note','Note','t']],repay:[['person','Who paid you','t'],['amount','Amount','n'],['account','Landed in','a']],paid:[['person','Who you paid','t'],['amount','Amount','n'],['account','Paid from','a']],poker:[['buyin','Bought in','n'],['cashout','Cashed out','n'],['hours','Hours','n'],['note','Note','t']],todo:[['title','Title','t'],['due','Due','d']],deadline:[['title','Title','t'],['date','Date','d'],['course','Course','k']],note:[['text','Note','t']],contact:[['name','Name','t'],['note','Note','t']],intern:[['matter','Matter','t'],['work','What you did','t'],['firm','Firm','t']]};
 function wlEditSheet(k,msg){
-  const q=wlQuestions().find(x=>x.k===k);if(!q||!q.bad)return;
+  const q=wlQuestions().find(x=>x.k===k);if(!q||!(q.bad||q.money)||q.ask)return;
   const it=(XS.wEd&&XS.wEd[k])||q.it,cfg=C(),fl=WL_F[it.kind];if(!fl)return toast('That item cannot be edited here');
   const sel=(n,l,opts,cur)=>'<label class="fld"><span>'+l+'</span><select name="'+n+'">'+opts.map(([v,t])=>'<option value="'+esc(v)+'"'+(String(v)===String(cur)?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></label>';
   const f=([n,l,ty])=>{
@@ -1333,18 +1364,21 @@ function wlEditSheet(k,msg){
     return '<label class="fld"><span>'+l+'</span><input type="'+(ty==='n'?'number':ty==='d'?'date':'text')+'" name="'+n+'" value="'+esc(v)+'"'+(ty==='n'?' step="any" inputmode="decimal"':'')+' autocomplete="off"></label>';
   };
   const hasDay=!['todo','deadline'].includes(it.kind);
-  sheet('<h2>Edit<small>'+esc(WL_KIND[it.kind]||'Item')+'</small></h2><p class="xnote" role="status">'+esc(msg||('Couldn’t save: '+q.bad))+'</p><form data-xform="wedit" class="stack"><input type="hidden" name="k" value="'+esc(k)+'">'+WL_F[it.kind].map(f).join('')+(hasDay?'<label class="fld"><span>Day</span><input type="date" name="date" value="'+esc(validYmd(it.date)?it.date:(q.date||''))+'"></label>':'')+'<div class="row"><button class="btn pri" type="submit">Save</button><button class="btn" type="button" data-act="sheetclose">Cancel</button></div></form>');
+  let spl='';
+  if(it.kind==='expense'&&!it.paidBy){const sh=wlShares(it.split);spl='<div class="lbl">Split with others</div>'+[0,1,2].map(i=>'<div class="fgrid"><label class="fld"><span>Person '+(i+1)+'</span><input type="text" name="sp'+i+'n" value="'+esc((sh[i]||{}).person||'')+'" autocomplete="off"></label><label class="fld"><span>Owes</span><input type="number" step="any" inputmode="decimal" name="sp'+i+'a" value="'+esc((sh[i]||{}).amount||'')+'"></label></div>').join('')}
+  sheet('<h2>Edit<small>'+esc(WL_KIND[it.kind]||'Item')+'</small></h2>'+(msg||q.bad?'<p class="xnote" role="status">'+esc(msg||('Couldn’t save: '+q.bad))+'</p>':'')+'<form data-xform="wedit" class="stack"><input type="hidden" name="k" value="'+esc(k)+'">'+WL_F[it.kind].map(f).join('')+spl+(hasDay?'<label class="fld"><span>Day</span><input type="date" name="date" value="'+esc(validYmd(it.date)?it.date:(q.date||''))+'"></label>':'')+'<div class="row"><button class="btn pri" type="submit">'+(q.money?'Save and approve':'Save')+'</button><button class="btn" type="button" data-act="sheetclose">Cancel</button></div></form>');
 }
 function wlEditSave(fd){
   const k=String(fd.get('k')),q=wlQuestions().find(x=>x.k===k);if(!q){closeSheet();return}
   const ed={...q.it};
   (WL_F[ed.kind]||[]).forEach(([n,l,ty])=>{if(!fd.has(n))return;const v=String(fd.get(n)).trim();ed[n]=ty==='n'?(v===''?'':parseFloat(v)):v});
+  if(ed.kind==='expense'&&fd.has('sp0n')){const sp=[0,1,2].map(i=>({person:String(fd.get('sp'+i+'n')||'').trim(),amount:parseFloat(fd.get('sp'+i+'a'))})).filter(x=>x.person||isFinite(x.amount));if(sp.length)ed.split=sp;else delete ed.split}
   if(fd.has('date')&&String(fd.get('date')))ed.date=String(fd.get('date'));
   const date=ed.kind==='deadline'||ed.kind==='todo'?q.date:wlDate(ed,{date:q.date});
   const r=wlApplyOne(ed,q.src,date);
   if(!r.ok){(XS.wEd=XS.wEd||{})[k]=ed;wlEditSheet(k,r.err?'Still can’t save: '+r.err:'That needs an answer first');return}
   if(XS.wEd)delete XS.wEd[k];
-  wlRegPut({[wlKey(q.src)]:{...r.rec,edited:true}});closeSheet();scheduleRender();toast('Saved',{noUndo:true});
+  wlRegPut({[wlKey(q.src)]:{...r.rec,edited:true,...(q.money?{ok:true,approved:true}:{})}});closeSheet();scheduleRender();toast('Saved',{noUndo:true});
 }
 function wlOption(k,j){
   const q=wlQuestions().find(x=>x.k===k);if(!q||!q.ask)return;
@@ -1353,11 +1387,13 @@ function wlOption(k,j){
   if(!o.item){wlRegPut({[key]:{at:Date.now(),skipped:true,chosen:o.label||''}});scheduleRender();return}
   const r=wlApplyOne(o.item,q.src,wlDate(o.item,{date:q.date}));
   if(!r.ok){toast(r.err?'Couldn’t save: '+r.err:'That needs an answer first',{noUndo:true});return}
-  wlRegPut({[key]:{...r.rec,chosen:o.label||''}});scheduleRender();toast('Saved',{noUndo:true});
+  wlRegPut({[key]:{...r.rec,chosen:o.label||'',...(wlIsMoney(o.item)?{ok:true,approved:true}:{})}});scheduleRender();toast('Saved',{noUndo:true});
 }
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('[data-x]');if(!t)return;const a=t.dataset.x,k=t.dataset.k;
-  if(a==='wtog'){XS.wHide=!XS.wHide;scheduleRender();return}
+  if(a==='wok'){wlConfirm([k]);return}
+  if(a==='wokall'){wlConfirm(wlSaved().map(x=>x.k));return}
+  if(a==='wapprove'){wlApprove(k);return}
   if(a==='wundo'){if(wlUndo([k]))toast('Undone',{noUndo:true});return}
   if(a==='wundoall'){const n=wlUndo(wlSaved().map(x=>x.k));if(n)toast('Undid '+n,{noUndo:true});return}
   if(a==='wedit'){wlEditSheet(k);return}

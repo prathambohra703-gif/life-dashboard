@@ -1,4 +1,4 @@
-"""Step 8: Wispr logger. Auto records are applied once, with Undo; questions wait; manual records behave as before."""
+"""Step 8: Wispr logger. Auto records are applied once, with Undo; money waits for approval; questions wait; manual records behave as before."""
 import sys,os,json,asyncio
 sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
 from _h import *
@@ -69,65 +69,93 @@ async def main():
     ok('cardio, habit, weight, steps, waist',s['cardio']==20 and s['creatine'] and s['weight']==68.4 and s['steps']==8200 and s['waist']==80,s)
     ok('wake, bed, mood, sleep quality',s['wake']=='06:10' and s['bed']=='23:30' and s['mood']==4 and s['sleepQ']==3,s)
     ok('study minutes on the day and the course; CFA minutes',s['study']==45 and '45' in s['cm'] and s['cfa']==30,s)
-    ok('expense parent with two owe children',s['txn']==1 and s['owe']==2 and await ev("(()=>{const p=state.entries.find(e=>e.type==='txn'&&e.amount===600);return p.account==='km'&&p.mine===200&&state.entries.filter(e=>e.type==='owe'&&e.src===p.id).map(e=>e.person).sort().join()==='Dia,Wrik'&&/^w_/.test(p.id)})()"),s)
-    ok('income, repay, paid, poker',s['inc']==1 and s['repay']==1 and s['paid']==1 and s['poker']==1,s)
     ok('todo with due, deadline, note',s['todo']==1 and s['dl']==1 and 'Felt strong' in s['note'],s)
     ok('contact last updated; intern row added',s['last']=='2026-11-30' and s['intern']==1,s)
-    ok('questions did not save anything (invalid expense, ask, new contact, unknown exercise)',s['gym']==False and s['txn']==1 and len(await ev("C().L_contacts"))==1)
+    ok('money with auto:true is NOT applied (expense, income, repay, paid, poker)',s['txn']==0 and s['owe']==0 and s['inc']==0 and s['repay']==0 and s['paid']==0 and s['poker']==0,s)
+    ok('a lift or cardio item also marks that day\'s Train session done',s['gym']==True)
+    ok('questions did not save anything else (ask, new contact, unknown exercise)',len(await ev("C().L_contacts"))==1)
     reg=await ev("Object.keys(LD.get('meta','wispr-applied')||{}).length")
-    ok('register has the 24 applied srcs',reg==24,reg)
-    card=await ev("(document.querySelector('#wispr')||{}).textContent||''")
-    cardU=card
-    ok('card: Added from Wispr, Saved, Needs you, Undo all',all(x in card for x in ['Added from Wispr','Saved','Needs you','Undo all','Water 500 ml','Bench press 40 kg × 8, 8, 7','Dinner ₹600, Wrik and Dia owe ₹200 each','Texted Manraj sir','Todo: Email the JSA HR, due Thu']),[x for x in ['Added from Wispr','Saved','Needs you','Undo all','Water 500 ml','Bench press 40 kg × 8, 8, 7','Dinner ₹600, Wrik and Dia owe ₹200 each','Texted Manraj sir','Todo: Email the JSA HR, due Thu'] if x not in card])
-    ok('card sits above the Nightly review position (first child on Today)',await ev("(()=>{const w=document.querySelector('#wispr');return !!w&&!!w.previousElementSibling&&!w.previousElementSibling.matches('#props')})()"))
-    ok('invalid expense is a question, with Edit',"Couldn’t save: ‘Paid 600 dinner ₹600’" in card.replace('\n',' ') or ('Couldn’t save' in card and 'which account?' in card),card[-500:])
-    ok('ask shown with its buttons','Was the 6 PM session at the gym?' in card and 'Gym' in card)
-    ok('4 questions and 24 saved in the heading',await ev("document.querySelector('#wispr small').textContent")=='24 saved · 4 need you',await ev("document.querySelector('#wispr small').textContent"))
+    ok('register has the 19 applied srcs (money is not in it)',reg==19,reg)
+    strip=await ev("(document.querySelector('#wispr')||{}).innerText||''")
+    need=['From Wispr · 19 logged','Keep all','Water 500 ml','Bench press 40 kg × 8, 8, 7','Creatine ticked','Texted Manraj sir','Todo: Email the JSA HR, due Thu']
+    ok('strip: compact lines, Keep all',all(x in strip for x in need) and 'Added from Wispr' not in strip,[x for x in need if x not in strip])
+    ok('strip: a ✓ and an Undo on every line',await ev("document.querySelectorAll('#wispr .wi-li [data-x=wok]').length")==19 and await ev("document.querySelectorAll('#wispr .wi-li [data-x=wundo]').length")==19)
+    ok('strip sits above the Nightly review position (first child on Today)',await ev("(()=>{const w=document.querySelector('#wispr');return !!w&&!!w.previousElementSibling&&!w.previousElementSibling.matches('#props')})()"))
+    q=(await ev("(document.querySelector('#wispr-q')||{}).innerText||''")).replace('\n',' ')
+    ok('To confirm card: money with Approve, Edit, Dismiss',all(x in q for x in ['To confirm','Dinner ₹600, Wrik and Dia owe ₹200 each','Income ₹1,000','Dia paid you ₹100','You paid Wrik ₹50','Poker','Approve','Edit','Dismiss']),q)
+    ok('invalid expense is a question, with Edit','Couldn’t save' in q and 'which account?' in q,q)
+    ok('ask shown with its buttons','Was the 6 PM session at the gym?' in q and 'Gym' in q)
+    ok('9 items to confirm',(await ev("document.querySelector('#wispr-q small').textContent")).startswith('9 items'),await ev("document.querySelector('#wispr-q small').textContent"))
     ok('manual card absent for auto records',await ev("!document.querySelector('#props')"))
-    # exactly once: second device = empty local state, rerun; second record with a new id; wiped register
+    # approve: applied exactly once, then gone
+    await p.click('#wispr-q .wi-q:has-text("Tutoring") [data-x=wapprove]');await p.wait_for_timeout(500)
+    ok('Approve applies the income once',(await ev(SNAP))['inc']==1)
+    ok('approved item disappears at once and is recorded (ok) in the register, not in the strip',await ev("!/Tutoring/.test(document.querySelector('#wispr-q').innerText)&&!/Tutoring/.test(document.querySelector('#wispr').innerText)&&Object.values(LD.get('meta','wispr-applied')).some(r=>r.ok&&r.approved&&r.it.kind==='income')"))
+    # exactly once: second device = empty local state, rerun; duplicate record with a new id
     snap1=await ev(SNAP)
     await ev("(()=>{const l=LD.list('proposals');XS.props=[];wlRun();XS.props=l;wlRun()})()")
     await ev("it=>LD.write('proposals','2026-11-30-1401',{at:Date.now(),date:'2026-11-30',auto:true,run:'14:00',items:it})",items)
     await p.wait_for_timeout(800);await ev("wlRun()")
     ok('same record again and a duplicate record with another id add nothing',await ev(SNAP)==snap1,await ev(SNAP))
-    ok('duplicate src is one question, not two',await ev("wlQuestions().length")==4)
-    # undo the expense
-    await p.click('#wispr .wi-li:has-text("Dinner") [data-x=wundo]');await p.wait_for_timeout(500)
-    s=await ev(SNAP)
-    ok('undo expense removes parent and children',s['txn']==0 and s['owe']==0 and s['all']==snap1['all']-3,s)
-    ok('undone expense is not re-applied',(await ev("wlRun(),1")) and (await ev(SNAP))['txn']==0)
-    await p.click('#wispr [data-x=wundoall]');await p.wait_for_timeout(600)
-    s=await ev(SNAP)
-    ok('undo all reverts entries',s['all']==before['all'] and s['water']==before['water'] and s['poker']==0 and s['inc']==0 and s['meals']==0,s)
-    ok('undo all reverts sets and restores previous day fields',s['sets']==0 and s['wake']=='07:00' and s['weight']==70 and s['creatine']==False and s['cardio']==0 and s['study']==0 and s['cfa']==0 and s['steps'] is None and 'Felt' not in s['note'],s)
-    ok('undo all reverts todo, deadline, contact, intern',s['todo']==0 and s['dl']==0 and s['last']=='2026-10-01' and s['intern']==0,s)
-    ok('card now shows only the questions',await ev("document.querySelector('#wispr small').textContent")=='0 saved · 4 need you')
+    ok('duplicate src is one question, not two',await ev("wlQuestions().length")==8)
+    # dismiss
+    await p.click('#wispr-q .wi-q:has-text("Poker") [data-x=wskip]');await p.wait_for_timeout(400)
+    ok('Dismiss removes it without applying and records skipped',(await ev(SNAP))['poker']==0 and await ev("!/Poker/.test(document.querySelector('#wispr-q').innerText)&&Object.values(LD.get('meta','wispr-applied')).some(r=>r.skipped)"))
+    # edit a money item: amount and split change before applying
+    await p.click('#wispr-q .wi-q:has-text("Wrik and Dia") [data-x=wedit]');await p.wait_for_timeout(300)
+    ok('Edit sheet has amount, account, category, note and split rows',await ev("['amount','account','category','note','sp0n','sp0a','sp1n','sp1a'].every(n=>!!document.querySelector('#layer [name='+n+']'))"))
+    await p.fill('#layer input[name=amount]','900');await p.fill('#layer input[name=sp0a]','300');await p.fill('#layer input[name=sp1a]','300')
+    await p.click('#layer button[type=submit]');await p.wait_for_timeout(500)
+    ok('Edit changes the amount and split before applying, once',await ev("(()=>{const e=state.entries.filter(x=>x.type==='txn'&&x.amount===900);return e.length===1&&e[0].mine===300&&e[0].account==='km'&&state.entries.filter(x=>x.type==='owe'&&x.src===e[0].id&&x.amount===300).length===2&&!state.entries.some(x=>x.type==='txn'&&x.amount===600)})()"))
+    ok('edited item is gone from To confirm',await ev("!/Wrik and Dia/.test(document.querySelector('#wispr-q').innerText)&&!/Wrik and Dia/.test((document.querySelector('#wispr')||{innerText:''}).innerText)"))
+    # undo reverses
+    await p.click('#wispr .wi-li:has-text("Bench press") [data-x=wundo]');await p.wait_for_timeout(500)
+    ok('Undo reverses the sets',(await ev(SNAP))['sets']==0)
+    await p.click('#wispr .wi-li:has-text("Cardio") [data-x=wundo]');await p.wait_for_timeout(500)
+    ok('Undo cardio reverses minutes and the Train tick',(await ev(SNAP))['cardio']==0 and (await ev(SNAP))['gym']==False)
+    # confirm one; persisted
+    await p.click('#wispr .wi-li:has-text("Water") [data-x=wok]');await p.wait_for_timeout(400)
+    ok('tick hides that line, keeps the data, stores ok in the register',await ev("!/Water 500/.test(document.querySelector('#wispr').innerText)&&(await_ok=Object.values(LD.get('meta','wispr-applied')).some(r=>r.ok&&r.it.kind==='water'))")and (await ev(SNAP))['water']-before['water']==500)
     await p.reload();await p.wait_for_function("window.LD&&LD.ready&&typeof remSheet==='function'");await p.wait_for_timeout(3800)
-    ok('a reload does not re-apply undone items',await ev(SNAP)==s,await ev(SNAP))
-    # invalid expense: Edit, pick the account
-    await p.click('#wispr [data-x=wedit]');await p.wait_for_timeout(300)
-    ok('Edit opens the existing-style sheet with a reason',await ev("!!document.querySelector('#layer select[name=account]')&&/which account/.test(document.querySelector('#layer').textContent)"))
+    ok('after a reload the ticked line stays hidden and undone items are not re-applied',await ev("!/Water 500/.test((document.querySelector('#wispr')||{innerText:''}).innerText)")and (await ev(SNAP))['sets']==0 and (await ev(SNAP))['cardio']==0)
+    for _ in range(30):
+        if not await p.query_selector('#wispr .wi-li [data-x=wundo]'):break
+        await p.click('#wispr .wi-li [data-x=wundo]');await p.wait_for_timeout(250)
+    s=await ev(SNAP)
+    ok('undoing the rest reverts entries and day fields (the ticked water stays)',s['water']-before['water']==500 and s['meals']==0 and s['wake']=='07:00' and s['weight']==70 and s['creatine']==False and s['study']==0 and s['cfa']==0 and s['steps'] is None and 'Felt' not in s['note'] and s['todo']==0 and s['dl']==0 and s['last']=='2026-10-01' and s['intern']==0 and s['gym']==False,s)
+    ok('strip is absent when nothing is unconfirmed',await ev("!document.querySelector('#wispr')"))
+    # invalid expense: Edit, pick the account; applies and goes away
+    await p.click('#wispr-q .wi-q:has-text("which account") [data-x=wedit]');await p.wait_for_timeout(300)
+    ok('Edit opens the sheet with a reason',await ev("!!document.querySelector('#layer select[name=account]')&&/which account/.test(document.querySelector('#layer').textContent)"))
     await p.select_option('#layer select[name=account]','km');await p.click('#layer button[type=submit]');await p.wait_for_timeout(500)
     ok('edited expense saved once with the chosen account',await ev("state.entries.filter(e=>e.type==='txn'&&e.amount===600&&e.account==='km').length")==1)
-    # ask: tap the option
-    await p.click('#wispr [data-x=wopt][data-o="0"]:has-text("Gym")');await p.wait_for_timeout(500)
-    ok('ask option applies its item',(await ev(SNAP))['gym']==True)
-    # unknown exercise question offers today\'s exercises; adding a contact
-    t=await ev("document.querySelector('#wispr').innerText")
+    # ask with a non-money option: applied, shown in the strip
+    await p.click('#wispr-q [data-x=wopt][data-o="0"]:has-text("Gym")');await p.wait_for_timeout(500)
+    ok('ask option applies its item and shows in the strip',(await ev(SNAP))['gym']==True and 'Gym: workout done' in await ev("document.querySelector('#wispr').innerText"))
+    t=await ev("document.querySelector('#wispr-q').innerText")
     ok('unknown exercise and unknown contact are questions','Which exercise is "zzz curl"?' in t and 'Add Zed Nobody as a contact?' in t,t)
-    await p.click('#wispr [data-x=wopt]:has-text("Add")');await p.wait_for_timeout(500)
+    await p.click('#wispr-q [data-x=wopt]:has-text("Add")');await p.wait_for_timeout(500)
     ok('Add creates the contact with last = the day',await ev("(C().L_contacts||[]).some(x=>x.name==='Zed Nobody'&&x.last==='2026-11-30')"))
-    await p.click('#wispr .wi-q:has-text("zzz curl") [data-x=wopt]:has-text("Skip")');await p.wait_for_timeout(400)
-    ok('Skip resolves a question for good',await ev("wlQuestions().length")==0)
+    await p.click('#wispr-q .wi-q:has-text("zzz curl") [data-x=wopt]:has-text("Skip")');await p.wait_for_timeout(400)
+    ok('Skip resolves a question for good; only the two money items remain',await ev("wlQuestions().length")==2)
     # money hide
     await ev("state.moneyHide=true;render()");await p.wait_for_timeout(300)
-    ok('money hidden on the card','₹ ••••' in await ev("document.querySelector('#wispr').innerText") and '₹600' not in await ev("document.querySelector('#wispr').innerText"))
+    mt=await ev("document.querySelector('#wispr-q').innerText")
+    ok('money hidden on the card','₹ ••••' in mt and '₹100' not in mt)
     await ev("state.moneyHide=false;render()")
+    # a money ask: tapping an option is the approval
+    await ev("LD.write('proposals','2026-11-30-1500',{at:Date.now(),date:'2026-11-30',auto:true,items:[{src:'m1#0',kind:'ask',question:'Was dinner shared?',options:[{label:'Alone 400',item:{kind:'expense',amount:400,account:'cash',category:'Food',note:'dinner solo',date:'2026-11-30'}},{label:'Skip',item:null}]}]})");await p.wait_for_timeout(900)
+    ok('a money ask is not applied by itself',await ev("!state.entries.some(e=>e.amount===400)&&/Was dinner shared/.test(document.querySelector('#wispr-q').innerText)"))
+    await p.click('#wispr-q [data-x=wopt]:has-text("Alone 400")');await p.wait_for_timeout(500)
+    ok('tapping the money option approves it: applied once and gone',await ev("state.entries.filter(e=>e.amount===400&&e.type==='txn').length")==1 and await ev("!/Was dinner shared/.test((document.querySelector('#wispr-q')||{innerText:''}).innerText)"))
     # manual records behave as before
     await ev("LD.write('proposals','p9',{at:Date.now(),items:[{kind:'todo',title:'Manual one'}]})");await p.wait_for_timeout(500)
     ok('auto:false record shows in Nightly review and is not applied',await ev("!!document.querySelector('#props [data-x=propok]')&&!state.todos.some(t=>t.title==='Manual one')"))
     await p.click('#props [data-x=propok]');await p.wait_for_timeout(400)
-    ok('manual approve still applies',await ev("state.todos.some(t=>t.title==='Manual one')"))
+    ok('manual approve still applies and the item disappears',await ev("state.todos.some(t=>t.title==='Manual one')&&!document.querySelector('#props')"))
+    await ev("LD.write('proposals','p10',{at:Date.now(),items:[{kind:'todo',title:'Manual two'}]})");await p.wait_for_timeout(500)
+    await p.click('#props [data-x=propno]');await p.wait_for_timeout(400)
+    ok('manual dismiss removes it without applying',await ev("!state.todos.some(t=>t.title==='Manual two')&&!document.querySelector('#props')"))
     # the Drive inbox script passes only date and items: auto marked on items must still auto-apply
     await ev("LD.write('proposals','2026-11-30-9zz',{at:Date.now(),date:'2026-11-30',items:[{kind:'todo',title:'Item-level auto todo',auto:true,src:'drive#1',date:'2026-11-30'}]})");await p.wait_for_timeout(800)
     ok('record with auto only on its items is applied without a tap',await ev("state.todos.some(t=>t.title==='Item-level auto todo')&&!document.querySelector('#props [data-x=propok]')"))
@@ -136,6 +164,66 @@ async def main():
     row=await ev("document.querySelector('[data-agent=nightly]').textContent")
     ok('agent row is Wispr logger with "N saved, M need you"',row.startswith('Wispr logger') and 'saved,' in row and 'need you' in row,row)
     ok('no page errors, no overflow at 390',not p.errs and await ev("document.documentElement.scrollWidth")==390,p.errs)
+    await c.close()
+
+    # ---- second scenario: habits, gym, strip behaviour ----
+    c,p=await fresh_at(b);ev=p.evaluate
+    await ev("dbSetDay('2026-11-30',{habits:{creatine:false,gym:false}});dbSetDay('2026-11-29',{habits:{}})")
+    T="2026-11-30"
+    await ev("it=>LD.write('proposals','2026-11-30-1400',{at:Date.now(),date:'2026-11-30',auto:true,items:it})",[
+      {'src':'h#0','kind':'habit','key':'creatine','done':True,'date':T},
+      {'src':'h#1','kind':'habit','key':'Creatine 5 g','done':True,'date':'2026-11-29'},
+      {'src':'h#2','kind':'habit','key':'no alcohol','done':True,'date':T},
+      {'src':'h#3','kind':'habit','key':'zzz','done':True,'date':T},
+      {'src':'h#4','kind':'habit','key':'gym','done':True,'date':T},
+      {'src':'h#5','kind':'water','ml':500,'date':T}])
+    await p.wait_for_timeout(1200)
+    ok('habit key creatine ticks the creatine habit (Creatine 5 g)',await ev("!!day('2026-11-30').habits.creatine&&habits('2026-11-30').items.find(i=>i.k==='creatine').done"))
+    ok('habit matched by name ("Creatine 5 g") ticks it on its own day',await ev("!!day('2026-11-29').habits.creatine"))
+    ok('habit matched by label ("no alcohol") ticks alcohol',await ev("!!day('2026-11-30').habits.alcohol"))
+    ok('an unknown habit becomes a question, not dropped',await ev("/Which habit is \"zzz\"/.test(document.querySelector('#wispr-q').innerText)&&!Object.values(day('2026-11-30').habits).some(v=>v&&false)"))
+    ok('habit gym done:true marks the session done in Train',await ev("!!day('2026-11-30').habits.gym"))
+    await ev("state.view='train';state.date='2026-11-30';render()");await p.wait_for_timeout(400)
+    ok('Train shows Session marked done',await ev("/Session marked done/.test(document.body.innerText)"))
+    await ev("state.view='today';render()");await p.wait_for_timeout(300)
+    st=await ev("document.querySelector('#wispr').innerText")
+    ok('strip lines: Creatine ticked · 29 Nov, Gym: workout done, Water 500 ml',all(x in st for x in ['Creatine ticked · 29 Nov','Gym: workout done','Water 500 ml','From Wispr · 5 logged']),st)
+    await p.click('#wispr .wi-li:has-text("Gym: workout done") [data-x=wundo]');await p.wait_for_timeout(500)
+    ok('Undo of gym clears the Train session',await ev("!day('2026-11-30').habits.gym"))
+    await ev("state.view='train';render()");await p.wait_for_timeout(400)
+    ok('Train is back to Mark session done',await ev("/Mark session done/.test(document.body.innerText)"))
+    await ev("state.view='today';render()");await p.wait_for_timeout(300)
+    await p.click('#wispr .wi-li:has-text("Water") [data-x=wok]');await p.wait_for_timeout(400)
+    ok('a tick hides one line (3 left)',await ev("/From Wispr · 3 logged/.test(document.querySelector('#wispr').innerText)"))
+    # auto-confirm after 3 days
+    await ev("(()=>{const r=LD.get('meta','wispr-applied'),k=Object.keys(r).find(x=>r[x].it&&r[x].it.key==='alcohol');LD.write('meta','wispr-applied',{...r,[k]:{...r[k],at:Date.now()-4*864e5}});scheduleRender()})()");await p.wait_for_timeout(500)
+    ok('an item older than 3 days is auto-confirmed (2 left)',await ev("/From Wispr · 2 logged/.test(document.querySelector('#wispr').innerText)"))
+    await p.click('#wispr [data-x=wokall]');await p.wait_for_timeout(500)
+    ok('Keep all hides the strip, data stays',await ev("!document.querySelector('#wispr')&&!!day('2026-11-30').habits.creatine&&Object.values(LD.get('meta','wispr-applied')).filter(r=>r.ok).length>=3"))
+    await p.reload();await p.wait_for_function("window.LD&&LD.ready&&typeof remSheet==='function'");await p.wait_for_timeout(3800)
+    ok('strip stays hidden after a reload; the unknown habit still waits',await ev("!document.querySelector('#wispr')&&!!document.querySelector('#wispr-q')&&!day('2026-11-30').habits.gym"))
+    await p.click('#wispr-q [data-x=wopt]:has-text("Mobility")');await p.wait_for_timeout(500)
+    ok('picking a habit for the question ticks it',await ev("!!day('2026-11-30').habits.mobility"))
+    await ev("state.view='today';render()");await p.wait_for_timeout(300)
+    await p.screenshot(path='screenshots/wispr2-strip.png') if False else None
+    ok('no page errors (habits scenario)',not p.errs,p.errs)
+    await c.close()
+
+    # ---- screenshots at 390: strip + money to confirm ----
+    c,p=await fresh_at(b);ev=p.evaluate
+    await ev(SETUP);items=await ev(ITEMS)
+    await ev("it=>LD.write('proposals','2026-11-30-1400',{at:Date.now(),date:'2026-11-30',auto:true,items:it.slice(0,6).concat(it.slice(14,16),it.slice(18,19))})",items);await p.wait_for_timeout(1500)
+    os.makedirs('screenshots',exist_ok=True)
+    await p.evaluate("window.scrollTo(0,0)")
+    await p.screenshot(path='screenshots/wispr2-today.png')
+    await p.evaluate("document.querySelector('#wispr').scrollIntoView()");await p.wait_for_timeout(200)
+    await p.screenshot(path='screenshots/wispr2-strip.png')
+    await p.evaluate("document.querySelector('#wispr-q').scrollIntoView()");await p.wait_for_timeout(200)
+    await p.screenshot(path='screenshots/wispr2-confirm.png')
+    await p.click('#wispr-q .wi-q [data-x=wedit]');await p.wait_for_timeout(400)
+    await p.screenshot(path='screenshots/wispr2-edit.png')
+    await c.close()
+
     # a device that lost the register (or never synced it): idempotent writes still add nothing
     c,p=await fresh_at(b);ev=p.evaluate
     await ev(SETUP);items=await ev(ITEMS)
